@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: voice-saas-quota
+  namespace: voice-saas
+spec:
+  hard:
+    requests.cpu: "20"
+    requests.memory: "40Gi"
+    limits.cpu: "40"
+    limits.memory: "80Gi"
+    requests.nvidia.com/gpu: "4"
+    persistentvolumeclaims: "20"
+    pods: "100"
+    services: "20"

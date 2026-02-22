@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - postgres.yaml
+  - redis.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: linkedeye-voice-agent
+  app.kubernetes.io/managed-by: kustomize
+  tier: data

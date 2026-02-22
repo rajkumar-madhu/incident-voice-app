@@ -1,0 +1,118 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-monolith
+  namespace: voice-saas
+  labels:
+    app: backend-monolith
+    tier: backend
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: backend-monolith
+  template:
+    metadata:
+      labels:
+        app: backend-monolith
+        tier: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "4000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: voice-saas-sa
+      imagePullSecrets:
+        - name: gitlab-registry
+      containers:
+        - name: backend-monolith
+          image: voice-saas/backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 4000
+              name: api-gateway
+            - containerPort: 4001
+              name: auth
+            - containerPort: 4002
+              name: orchestrator
+            - containerPort: 4003
+              name: email
+            - containerPort: 4004
+              name: webvoice
+            - containerPort: 8001
+              name: stt
+            - containerPort: 8002
+              name: tts
+            - containerPort: 8003
+              name: rag
+          envFrom:
+            - configMapRef:
+                name: voice-saas-config
+            - secretRef:
+                name: voice-saas-secrets
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://postgres:$(DATABASE_PASSWORD)@postgres-svc.voice-saas-data.svc.cluster.local:5432/voice_saas"
+            - name: REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@redis-svc.voice-saas-data.svc.cluster.local:6379"
+            - name: RAG_DATABASE_URL
+              value: "postgresql://postgres:$(DATABASE_PASSWORD)@postgres-svc.voice-saas-data.svc.cluster.local:5432/voice_saas"
+            # Internal service URLs (localhost since all in same pod)
+            - name: AUTH_SERVICE_URL
+              value: "http://localhost:4001"
+            - name: STT_SERVICE_URL
+              value: "http://localhost:8001"
+            - name: TTS_SERVICE_URL
+              value: "http://localhost:8002"
+            - name: RAG_SERVICE_URL
+              value: "http://localhost:8003"
+            - name: ORCHESTRATOR_URL
+              value: "http://localhost:4002"
+            - name: EMAIL_SERVICE_URL
+              value: "http://localhost:4003"
+            - name: WEBVOICE_SERVICE_URL
+              value: "http://localhost:4004"
+            - name: API_GATEWAY_URL
+              value: "http://localhost:4000"
+            - name: FLOWISE_URL
+              value: "http://flowise:3000"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: 4000
+            failureThreshold: 30
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 4000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /health/live
+              port: 4000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          volumeMounts:
+            - name: rag-migration
+              mountPath: /app/services/rag/db/migrations/001_rag_schema.sql
+              subPath: 001_rag_schema.sql
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            allowPrivilegeEscalation: false
+      volumes:
+        - name: rag-migration
+          configMap:
+            name: rag-migration-fix

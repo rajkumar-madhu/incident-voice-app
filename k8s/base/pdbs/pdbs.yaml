@@ -1,0 +1,110 @@
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-gateway-pdb
+  namespace: voice-saas
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: api-gateway
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: auth-pdb
+  namespace: voice-saas
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: auth
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: orchestrator-pdb
+  namespace: voice-saas
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: orchestrator
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: webvoice-pdb
+  namespace: voice-saas
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: webvoice
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: email-pdb
+  namespace: voice-saas
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: email
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: stt-pdb
+  namespace: voice-saas
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: stt
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: tts-pdb
+  namespace: voice-saas
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: tts
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: rag-pdb
+  namespace: voice-saas
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: rag
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgres-pdb
+  namespace: voice-saas-data
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: postgres
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-pdb
+  namespace: voice-saas-data
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: redis

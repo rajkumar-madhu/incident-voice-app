@@ -1,0 +1,187 @@
+name: CI - PR Validation
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      auth: ${{ steps.filter.outputs.auth }}
+      api-gateway: ${{ steps.filter.outputs.api-gateway }}
+      orchestrator: ${{ steps.filter.outputs.orchestrator }}
+      email: ${{ steps.filter.outputs.email }}
+      webvoice: ${{ steps.filter.outputs.webvoice }}
+      stt: ${{ steps.filter.outputs.stt }}
+      tts: ${{ steps.filter.outputs.tts }}
+      rag: ${{ steps.filter.outputs.rag }}
+      k8s: ${{ steps.filter.outputs.k8s }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            auth:
+              - 'services/auth/**'
+            api-gateway:
+              - 'services/api-gateway/**'
+            orchestrator:
+              - 'services/orchestrator/**'
+            email:
+              - 'services/email/**'
+            webvoice:
+              - 'services/webvoice/**'
+            stt:
+              - 'services/stt/**'
+            tts:
+              - 'services/tts/**'
+            rag:
+              - 'services/rag/**'
+            k8s:
+              - 'k8s/**'
+
+  # ─── Node.js Services ───
+  ci-node:
+    needs: detect-changes
+    if: >
+      needs.detect-changes.outputs.auth == 'true' ||
+      needs.detect-changes.outputs.api-gateway == 'true' ||
+      needs.detect-changes.outputs.orchestrator == 'true' ||
+      needs.detect-changes.outputs.email == 'true' ||
+      needs.detect-changes.outputs.webvoice == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - name: auth
+            changed: ${{ needs.detect-changes.outputs.auth }}
+          - name: api-gateway
+            changed: ${{ needs.detect-changes.outputs.api-gateway }}
+          - name: orchestrator
+            changed: ${{ needs.detect-changes.outputs.orchestrator }}
+          - name: email
+            changed: ${{ needs.detect-changes.outputs.email }}
+          - name: webvoice
+            changed: ${{ needs.detect-changes.outputs.webvoice }}
+        exclude:
+          - service:
+              changed: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: services/${{ matrix.service.name }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: services/${{ matrix.service.name }}
+
+      - name: Lint
+        run: npm run lint
+        working-directory: services/${{ matrix.service.name }}
+
+      - name: Type check
+        run: npm run typecheck
+        working-directory: services/${{ matrix.service.name }}
+
+      - name: Test
+        run: npm test -- --reporter=verbose
+        working-directory: services/${{ matrix.service.name }}
+
+  # ─── Python Services ───
+  ci-python:
+    needs: detect-changes
+    if: >
+      needs.detect-changes.outputs.stt == 'true' ||
+      needs.detect-changes.outputs.tts == 'true' ||
+      needs.detect-changes.outputs.rag == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - name: stt
+            changed: ${{ needs.detect-changes.outputs.stt }}
+          - name: tts
+            changed: ${{ needs.detect-changes.outputs.tts }}
+          - name: rag
+            changed: ${{ needs.detect-changes.outputs.rag }}
+        exclude:
+          - service:
+              changed: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          cache-dependency-path: services/${{ matrix.service.name }}/requirements*.txt
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt 2>/dev/null || true
+          pip install pytest pytest-asyncio ruff mypy
+        working-directory: services/${{ matrix.service.name }}
+
+      - name: Lint
+        run: ruff check .
+        working-directory: services/${{ matrix.service.name }}
+
+      - name: Type check
+        run: mypy . --ignore-missing-imports
+        working-directory: services/${{ matrix.service.name }}
+        continue-on-error: true
+
+      - name: Test
+        run: pytest -v
+        working-directory: services/${{ matrix.service.name }}
+
+  # ─── K8s Manifest Validation ───
+  validate-k8s:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.k8s == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Validate base manifests
+        run: kustomize build k8s/base/ > /dev/null
+
+      - name: Validate staging overlay
+        run: kustomize build k8s/staging/ > /dev/null
+
+      - name: Validate production overlay
+        run: kustomize build k8s/prod/ > /dev/null
+
+  # ─── Status Gate ───
+  ci-complete:
+    if: always()
+    needs: [ci-node, ci-python, validate-k8s]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check CI results
+        run: |
+          if [[ "${{ needs.ci-node.result }}" == "failure" ]] || \
+             [[ "${{ needs.ci-python.result }}" == "failure" ]] || \
+             [[ "${{ needs.validate-k8s.result }}" == "failure" ]]; then
+            echo "CI failed"
+            exit 1
+          fi
+          echo "CI passed"

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__MCP_DOCKER__mcp-find"
+    ]
+  },
+  "outputStyle": "Explanatory",
+  "remote": {
+    "defaultEnvironmentId": "env_01R35ayxahANmy2TpiGpJSdC"
+  }
+}

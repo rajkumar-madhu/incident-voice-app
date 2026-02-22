@@ -1,0 +1,72 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrate
+  namespace: voice-saas
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        app: db-migrate
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: voice-saas-sa
+      securityContext:
+        runAsUser: 1001
+        runAsNonRoot: true
+      containers:
+        - name: migrate
+          image: postgres:16-alpine
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              echo "Running database migrations..."
+
+              # Auth service schema (001_init_schema.sql)
+              echo "Applying auth schema..."
+              psql "$DATABASE_URL" -f /migrations/auth/001_init_schema.sql
+
+              # Orchestrator schema
+              echo "Applying orchestrator schema..."
+              psql "$DATABASE_URL" -f /migrations/orchestrator/001_init_schema.sql
+
+              # Email schema
+              echo "Applying email schema..."
+              psql "$DATABASE_URL" -f /migrations/email/001_init_schema.sql
+
+              # RAG schema
+              echo "Applying RAG schema..."
+              psql "$DATABASE_URL" -f /migrations/rag/001_init_schema.sql
+
+              echo "All migrations completed successfully."
+          envFrom:
+            - secretRef:
+                name: voice-saas-secrets
+          volumeMounts:
+            - name: auth-migrations
+              mountPath: /migrations/auth
+            - name: orchestrator-migrations
+              mountPath: /migrations/orchestrator
+            - name: email-migrations
+              mountPath: /migrations/email
+            - name: rag-migrations
+              mountPath: /migrations/rag
+      volumes:
+        - name: auth-migrations
+          configMap:
+            name: auth-migrations
+        - name: orchestrator-migrations
+          configMap:
+            name: orchestrator-migrations
+        - name: email-migrations
+          configMap:
+            name: email-migrations
+        - name: rag-migrations
+          configMap:
+            name: rag-migrations

@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: voice-saas-production
+  namespace: argocd
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: voice-saas-deployments
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: voice-saas-deployments
+    notifications.argoproj.io/subscribe.on-sync-status-unknown.slack: voice-saas-alerts
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: voice-saas-alerts
+spec:
+  project: voice-saas
+
+  source:
+    repoURL: https://github.com/linkedeye/voice-saas.git
+    targetRevision: main
+    path: k8s/prod
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: voice-saas
+
+  # Manual sync for production (require approval)
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Ignore HPA-managed replica counts
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker system:*)",
+      "Bash(du:*)",
+      "Bash(wsl --shutdown:*)",
+      "Bash(powershell.exe -Command \"Optimize-VHD -Path ''C:\\\\Users\\\\RajkumarMadhuFinspot\\\\AppData\\\\Local\\\\Docker\\\\wsl\\\\disk\\\\docker_data.vhdx'' -Mode Full\")",
+      "Bash(npm cache clean:*)",
+      "Bash(pip cache:*)",
+      "Bash(wc -l:*)"
+    ]
+  }
+}

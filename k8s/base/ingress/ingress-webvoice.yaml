@@ -1,0 +1,41 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: voice-saas-webvoice-ingress
+  namespace: voice-saas
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    # TLS
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # Sticky sessions for Socket.IO (required for multi-replica)
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/session-cookie-name: "VOICESESSION"
+    nginx.ingress.kubernetes.io/session-cookie-expires: "1800"
+    nginx.ingress.kubernetes.io/session-cookie-secure: "true"
+    nginx.ingress.kubernetes.io/session-cookie-samesite: "Strict"
+    # WebSocket timeouts (1 hour for long voice sessions)
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/connection-proxy-header: "keep-alive"
+    # Request size
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    # WebSocket support
+    nginx.ingress.kubernetes.io/websocket-services: "webvoice"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - voice.santhira.com
+      secretName: voice-saas-webvoice-tls
+  rules:
+    - host: voice.santhira.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: webvoice
+                port:
+                  number: 4004

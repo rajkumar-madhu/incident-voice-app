@@ -1,0 +1,50 @@
+---
+# Let's Encrypt Staging (for testing — does not count against rate limits)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: devops@santhira.com
+    privateKeySecretRef:
+      name: letsencrypt-staging-key
+    solvers:
+      # DNS-01 for voice.api.santhira.com (hairpin NAT blocks HTTP-01 self-check)
+      - selector:
+          dnsNames:
+            - "voice.api.santhira.com"
+        dns01:
+          digitalocean:
+            tokenSecretRef:
+              name: digitalocean-dns-token
+              key: access-token
+      - http01:
+          ingress:
+            class: nginx
+---
+# Let's Encrypt Production
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: devops@santhira.com
+    privateKeySecretRef:
+      name: letsencrypt-prod-key
+    solvers:
+      # DNS-01 for voice.api.santhira.com (hairpin NAT blocks HTTP-01 self-check)
+      - selector:
+          dnsNames:
+            - "voice.api.santhira.com"
+        dns01:
+          digitalocean:
+            tokenSecretRef:
+              name: digitalocean-dns-token
+              key: access-token
+      - http01:
+          ingress:
+            class: nginx

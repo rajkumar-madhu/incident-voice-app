@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: stt-config
+  namespace: voice-saas
+data:
+  STT_WHISPER_MODEL: "base"
+  STT_WHISPER_DEVICE: "cpu"
+  STT_WHISPER_COMPUTE_TYPE: "int8"
+  STT_PORT: "8001"
+  STT_WHISPER_BEAM_SIZE: "5"
+  STT_WHISPER_VAD_FILTER: "true"
+  STT_MAX_AUDIO_DURATION: "300"
+  STT_SUPPORTED_LANGUAGES: "en,hi,ta,te,kn,ml"

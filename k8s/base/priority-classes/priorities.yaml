@@ -1,0 +1,32 @@
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: voice-saas-critical
+value: 1000
+globalDefault: false
+description: "Critical services: api-gateway, auth"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: voice-saas-data
+value: 900
+globalDefault: false
+description: "Data layer: PostgreSQL, Redis"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: voice-saas-high
+value: 500
+globalDefault: false
+description: "High priority: orchestrator, webvoice"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: voice-saas-medium
+value: 250
+globalDefault: false
+description: "Medium priority: stt, tts, rag, email"

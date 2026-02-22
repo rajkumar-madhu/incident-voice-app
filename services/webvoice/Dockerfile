@@ -1,0 +1,22 @@
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production=false
+COPY . .
+RUN npm run build
+
+FROM node:20-alpine AS production
+WORKDIR /app
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+COPY --from=builder /app/dist ./dist
+COPY public ./public
+RUN chown -R nodejs:nodejs /app
+USER nodejs
+EXPOSE 4004
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:4004/health || exit 1
+ENV NODE_ENV=production
+ENV PORT=4004
+CMD ["node", "dist/index.js"]

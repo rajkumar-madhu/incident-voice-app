@@ -1,0 +1,58 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: voice-saas
+  namespace: argocd
+spec:
+  description: LinkedEye Voice Agent SaaS Platform
+
+  # Source repositories
+  sourceRepos:
+    - 'https://github.com/linkedeye/voice-saas.git'
+
+  # Destination clusters and namespaces
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: voice-saas
+    - server: https://kubernetes.default.svc
+      namespace: voice-saas-data
+    - server: https://kubernetes.default.svc
+      namespace: monitoring
+    - server: https://kubernetes.default.svc
+      namespace: ingress
+
+  # Cluster-scoped resources that this project can manage
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+    - group: cert-manager.io
+      kind: ClusterIssuer
+    - group: scheduling.k8s.io
+      kind: PriorityClass
+    - group: networking.k8s.io
+      kind: IngressClass
+
+  # Namespace-scoped resources whitelist
+  namespaceResourceWhitelist:
+    - group: ''
+      kind: '*'
+    - group: apps
+      kind: '*'
+    - group: batch
+      kind: '*'
+    - group: networking.k8s.io
+      kind: '*'
+    - group: policy
+      kind: '*'
+    - group: autoscaling
+      kind: '*'
+    - group: external-secrets.io
+      kind: '*'
+
+  # Deny list for orphaned resources
+  orphanedResources:
+    warn: true

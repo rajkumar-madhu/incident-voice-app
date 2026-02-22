@@ -1,0 +1,78 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.2.0)'
+        required: true
+        type: string
+      changelog:
+        description: 'Release changelog / notes'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  validate-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate semver format
+        run: |
+          if [[ ! "${{ inputs.version }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: Version must match format v<major>.<minor>.<patch>"
+            exit 1
+          fi
+
+  deploy-production:
+    needs: validate-version
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Update production image tags
+        run: |
+          cd k8s/prod
+          SERVICES=(auth api-gateway orchestrator email webvoice stt tts rag)
+          for svc in "${SERVICES[@]}"; do
+            kustomize edit set image "voice-saas/${svc}=ghcr.io/${{ github.repository_owner }}/voice-saas/${svc}:${{ inputs.version }}"
+          done
+
+      - name: Commit updated tags
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/prod/kustomization.yaml
+          git commit -m "release(${{ inputs.version }}): update production image tags"
+          git push origin main
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version }}
+          name: Release ${{ inputs.version }}
+          body: |
+            ## Release ${{ inputs.version }}
+
+            ${{ inputs.changelog }}
+
+            ### Services Updated
+            - auth, api-gateway, orchestrator, email, webvoice
+            - stt, tts, rag
+
+            ### Deployment
+            ArgoCD will sync production manifests from `k8s/prod/`.
+          draft: false
+          prerelease: false

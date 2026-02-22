@@ -1,0 +1,69 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # Namespaces
+  - namespace.yaml
+  - namespace-data.yaml
+
+  # RBAC
+  - rbac/service-account.yaml
+
+  # Priority Classes (cluster-scoped)
+  - priority-classes/priorities.yaml
+
+  # ConfigMaps
+  - configmaps/common.yaml
+  - configmaps/stt-config.yaml
+
+  # Secrets — managed imperatively (excluded from kustomize to avoid commonLabels on secrets)
+  # Apply separately: kubectl apply -f k8s/base/secrets/secrets.yaml
+
+  # Cert-Manager
+  - cert-manager/cluster-issuer.yaml
+
+  # PVCs
+  - pvcs/flowise-data-pvc.yaml
+  - pvcs/tts-models-pvc.yaml
+  - pvcs/email-attachments-pvc.yaml
+
+  # Deployments
+  - deployments/santhira-frontend.yaml
+  - deployments/backend-monolith.yaml
+  - deployments/flowise.yaml
+
+  # Services
+  - services/santhira-frontend.yaml
+  - services/backend-monolith.yaml
+  - services/flowise.yaml
+
+  # Ingress
+  - ingress/ingress-santhira.yaml
+  - ingress/ingress-flowise.yaml
+
+  # ConfigMaps (frontend)
+  - configmaps/santhira-frontend.yaml
+
+  # Resource Quotas
+  - resource-quotas/voice-saas-quota.yaml
+
+  # Network Policies
+  - network-policies/default-deny.yaml
+  # data-layer.yaml — managed separately (excluded to avoid commonLabels on podSelector)
+  # Apply separately: kubectl apply -f k8s/base/network-policies/data-layer.yaml
+
+  # Jobs
+  - jobs/db-migrate.yaml
+  - jobs/pg-backup-cronjob.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: linkedeye-voice-agent
+  app.kubernetes.io/managed-by: kustomize
+
+images:
+  - name: voice-saas/santhira-frontend
+    newName: registry.gitlab.com/saasproduct2026/voice-agent/forntend
+    newTag: latest
+  - name: voice-saas/backend
+    newName: registry.gitlab.com/saasproduct2026/voice-agent/backend
+    newTag: latest

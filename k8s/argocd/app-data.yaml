@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: voice-saas-data
+  namespace: argocd
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: voice-saas-deployments
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: voice-saas-alerts
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: voice-saas-alerts
+spec:
+  project: voice-saas
+
+  source:
+    repoURL: https://github.com/linkedeye/voice-saas.git
+    targetRevision: main
+    path: k8s/base/stateful
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: voice-saas-data
+
+  # Manual sync for data layer (careful rollout required)
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 2
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+
+  # Never auto-delete PVCs
+  ignoreDifferences:
+    - group: ''
+      kind: PersistentVolumeClaim
+      jsonPointers:
+        - /spec/resources

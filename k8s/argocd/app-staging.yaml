@@ -1,0 +1,43 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: voice-saas-staging
+  namespace: argocd
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: voice-saas-deployments
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: voice-saas-deployments
+spec:
+  project: voice-saas
+
+  source:
+    repoURL: https://github.com/linkedeye/voice-saas.git
+    targetRevision: develop
+    path: k8s/staging
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: voice-saas
+
+  # Automated sync for staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Ignore diffs on mutable fields
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
