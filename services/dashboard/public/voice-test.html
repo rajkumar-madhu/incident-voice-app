@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Agent Test</title>
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; padding: 20px; }
+    .container { max-width: 600px; margin: 0 auto; }
+    h1 { text-align: center; margin-bottom: 20px; color: #38bdf8; }
+    .status { text-align: center; padding: 8px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
+    .status.connected { background: #065f46; color: #6ee7b7; }
+    .status.disconnected { background: #7f1d1d; color: #fca5a5; }
+    .status.connecting { background: #78350f; color: #fcd34d; }
+    .config { background: #1e293b; padding: 16px; border-radius: 12px; margin-bottom: 20px; }
+    .config label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 4px; }
+    .config input, .config select { width: 100%; padding: 8px 12px; border: 1px solid #334155; border-radius: 6px; background: #0f172a; color: #e2e8f0; margin-bottom: 12px; font-size: 14px; }
+    .controls { display: flex; gap: 12px; justify-content: center; margin-bottom: 20px; }
+    button { padding: 12px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #connectBtn { background: #2563eb; color: white; }
+    #connectBtn:hover:not(:disabled) { background: #1d4ed8; }
+    #recordBtn { background: #dc2626; color: white; min-width: 140px; }
+    #recordBtn:hover:not(:disabled) { background: #b91c1c; }
+    #recordBtn.recording { background: #16a34a; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.4); } 50% { box-shadow: 0 0 0 12px rgba(22, 163, 74, 0); } }
+    .chat { background: #1e293b; border-radius: 12px; padding: 16px; min-height: 300px; max-height: 500px; overflow-y: auto; }
+    .msg { padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; line-height: 1.5; }
+    .msg.user { background: #1e40af; margin-left: 40px; }
+    .msg.assistant { background: #334155; margin-right: 40px; }
+    .msg.system { background: #374151; text-align: center; font-size: 12px; color: #9ca3af; }
+    .msg .label { font-size: 11px; color: #94a3b8; margin-bottom: 4px; }
+    audio { width: 100%; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Santhira Voice Agent</h1>
+    <div id="status" class="status disconnected">Disconnected</div>
+
+    <div class="config">
+      <label>Server URL</label>
+      <input id="serverUrl" value="http://localhost:4004" />
+      <label>JWT Token</label>
+      <input id="token" placeholder="Bearer token from login" />
+      <label>Language</label>
+      <select id="language">
+        <option value="en">English</option>
+        <option value="ta">Tamil</option>
+        <option value="hi">Hindi</option>
+        <option value="te">Telugu</option>
+      </select>
+    </div>
+
+    <div class="controls">
+      <button id="connectBtn" onclick="toggleConnection()">Connect</button>
+      <button id="recordBtn" onclick="toggleRecording()" disabled>Hold to Talk</button>
+    </div>
+
+    <div id="chat" class="chat">
+      <div class="msg system">Connect to start a voice session</div>
+    </div>
+  </div>
+
+  <script>
+    let socket = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+    let audioContext = null;
+
+    function setStatus(text, type) {
+      const el = document.getElementById('status');
+      el.textContent = text;
+      el.className = 'status ' + type;
+    }
+
+    function addMessage(text, type, audioBase64) {
+      const chat = document.getElementById('chat');
+      const div = document.createElement('div');
+      div.className = 'msg ' + type;
+      const label = type === 'user' ? 'You' : type === 'assistant' ? 'Agent' : 'System';
+      div.innerHTML = `<div class="label">${label}</div>${text}`;
+      if (audioBase64) {
+        const audio = document.createElement('audio');
+        audio.controls = true;
+        audio.src = 'data:audio/wav;base64,' + audioBase64;
+        div.appendChild(audio);
+        audio.play().catch(() => {});
+      }
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function toggleConnection() {
+      if (socket && socket.connected) {
+        socket.disconnect();
+        return;
+      }
+
+      const url = document.getElementById('serverUrl').value;
+      const token = document.getElementById('token').value;
+
+      setStatus('Connecting...', 'connecting');
+
+      socket = io(url, {
+        auth: { token: token.startsWith('Bearer ') ? token.slice(7) : token },
+        transports: ['websocket', 'polling'],
+      });
+
+      socket.on('connect', () => {
+        setStatus('Connected - Session starting...', 'connected');
+        document.getElementById('connectBtn').textContent = 'Disconnect';
+
+        socket.emit('start-session', {
+          language: document.getElementById('language').value,
+        });
+      });
+
+      socket.on('session-started', (data) => {
+        setStatus('Connected - Ready', 'connected');
+        document.getElementById('recordBtn').disabled = false;
+        addMessage(`Session started (ID: ${data.sessionId})`, 'system');
+      });
+
+      socket.on('transcription', (data) => {
+        addMessage(data.text, 'user');
+      });
+
+      socket.on('ai-response', (data) => {
+        addMessage(data.text, 'assistant');
+      });
+
+      socket.on('audio-response', (data) => {
+        if (data.audio) {
+          const base64 = typeof data.audio === 'string' ? data.audio : btoa(String.fromCharCode(...new Uint8Array(data.audio)));
+          addMessage('(Audio response)', 'assistant', base64);
+        }
+      });
+
+      socket.on('error', (data) => {
+        addMessage(`Error: ${data.message || JSON.stringify(data)}`, 'system');
+      });
+
+      socket.on('session-timeout', () => {
+        addMessage('Session timed out', 'system');
+        setStatus('Session timed out', 'disconnected');
+      });
+
+      socket.on('disconnect', (reason) => {
+        setStatus('Disconnected: ' + reason, 'disconnected');
+        document.getElementById('connectBtn').textContent = 'Connect';
+        document.getElementById('recordBtn').disabled = true;
+      });
+
+      socket.on('connect_error', (err) => {
+        setStatus('Connection failed: ' + err.message, 'disconnected');
+        addMessage('Connection error: ' + err.message, 'system');
+      });
+    }
+
+    async function toggleRecording() {
+      if (isRecording) {
+        stopRecording();
+      } else {
+        await startRecording();
+      }
+    }
+
+    async function startRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioContext = new AudioContext({ sampleRate: 16000 });
+
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0 && socket && socket.connected) {
+            e.data.arrayBuffer().then(buf => {
+              socket.emit('audio-chunk', buf);
+            });
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          stream.getTracks().forEach(t => t.stop());
+        };
+
+        mediaRecorder.start(250); // Send chunks every 250ms
+        isRecording = true;
+
+        const btn = document.getElementById('recordBtn');
+        btn.textContent = 'Stop Recording';
+        btn.classList.add('recording');
+        addMessage('Recording...', 'system');
+      } catch (err) {
+        addMessage('Microphone error: ' + err.message, 'system');
+      }
+    }
+
+    function stopRecording() {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+      isRecording = false;
+
+      const btn = document.getElementById('recordBtn');
+      btn.textContent = 'Hold to Talk';
+      btn.classList.remove('recording');
+
+      if (socket && socket.connected) {
+        socket.emit('end-session');
+      }
+      addMessage('Recording stopped', 'system');
+    }
+  </script>
+</body>
+</html>

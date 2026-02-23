@@ -98,7 +98,19 @@
       "Bash(kubectl cp:*)",
       "Bash(kubectl create:*)",
       "Bash(ls:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(gh auth:*)",
+      "Bash(cd /c/Users/RajkumarMadhuFinspot/Desktop/finspot-voiceagent-saas-notebook && \"/c/Program Files/GitHub CLI/gh.exe\" repo create finspot-voiceagent-saas --private --source=. --remote=origin --push 2>&1)",
+      "WebSearch",
+      "WebFetch(domain:vapi.ai)",
+      "WebFetch(domain:docs.vapi.ai)",
+      "Bash(cd \"C:\\\\Users\\\\RajkumarMadhuFinspot\\\\Desktop\\\\finspot-voiceagent-saas-notebook\\\\services\\\\dashboard\" && npm run build 2>&1)",
+      "Bash(cd /c/Users/RajkumarMadhuFinspot/Desktop/finspot-voiceagent-saas-notebook/services/dashboard && npm run build 2>&1)",
+      "Bash(tee:*)",
+      "Bash(head:*)",
+      "WebFetch(domain:webhook.site)",
+      "Bash(MSYS_NO_PATHCONV=1 kubectl cp:*)",
+      "Bash(git:*)"
     ]
   }
 }

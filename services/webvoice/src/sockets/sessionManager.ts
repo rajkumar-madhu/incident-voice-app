@@ -3,6 +3,7 @@ import { getRedisClient } from '../db/redis.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config.js';
 import { activeSessions, sessionDuration } from '../utils/metrics.js';
+import { publishCallCompleted } from '../services/callLogPublisher.js';
 import type { VoiceSession } from '../types/index.js';
 
 const SESSION_PREFIX = 'voicesession:';
@@ -49,8 +50,14 @@ export const updateSessionActivity = async (sessionId: string): Promise<void> =>
   }
 };
 
-export const destroySession = async (sessionId: string): Promise<void> => {
+export const destroySession = async (sessionId: string, status: string = 'completed'): Promise<void> => {
   const session = await getSession(sessionId);
+
+  // Publish call completed event before deleting session data
+  if (session) {
+    await publishCallCompleted(session, status);
+  }
+
   const client = await getRedisClient();
   await client.del(`${SESSION_PREFIX}${sessionId}`);
 

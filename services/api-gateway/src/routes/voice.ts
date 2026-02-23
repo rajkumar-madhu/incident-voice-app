@@ -37,7 +37,7 @@ router.post(
 
       if (data.audio || data.audio_url) {
         const sttStart = Date.now();
-        const sttResult = await proxyRequest<{ text: string; language: string }>({
+        const sttResult = await proxyRequest<{ success: boolean; data: { text: string; language: string } }>({
           service: 'stt',
           method: 'POST',
           path: '/v1/transcribe',
@@ -47,11 +47,13 @@ router.post(
             language: data.language,
           },
           headers: {
+            'Authorization': req.headers.authorization || '',
+            'X-API-Key': req.headers['x-api-key'] as string || '',
             'X-Tenant-ID': req.context!.tenant_id,
             'X-Request-ID': req.context!.request_id,
           },
         });
-        transcript = sttResult.data.text;
+        transcript = sttResult.data.data.text;
         sttLatency = Date.now() - sttStart;
       }
 
@@ -62,8 +64,12 @@ router.post(
       // Send to LLM via orchestrator
       const llmStart = Date.now();
       const llmResult = await proxyRequest<{
-        response: string;
-        tool_calls?: Array<{ name: string; arguments: Record<string, unknown>; result?: unknown }>;
+        success: boolean;
+        data: {
+          conversation_id: string;
+          response: string;
+          tool_calls?: Array<{ name: string; arguments: Record<string, unknown>; result?: unknown }>;
+        };
       }>({
         service: 'orchestrator',
         method: 'POST',
@@ -71,12 +77,14 @@ router.post(
         data: {
           tenant_id: req.context!.tenant_id,
           conversation_id: conversationId,
-          text: transcript,
+          message: transcript,
           language: data.language,
           persona_id: data.persona_id,
           metadata: data.metadata,
         },
         headers: {
+          'Authorization': req.headers.authorization || '',
+          'X-API-Key': req.headers['x-api-key'] as string || '',
           'X-Tenant-ID': req.context!.tenant_id,
           'X-Request-ID': req.context!.request_id,
         },
@@ -85,16 +93,18 @@ router.post(
 
       // Generate TTS response
       const ttsStart = Date.now();
-      const ttsResult = await proxyRequest<{ audio_base64: string; audio_url?: string }>({
+      const ttsResult = await proxyRequest<{ success: boolean; data: { audio_base64: string; audio_url?: string } }>({
         service: 'tts',
         method: 'POST',
         path: '/v1/synthesize',
         data: {
-          text: llmResult.data.response,
+          text: llmResult.data.data.response,
           language: data.language,
           persona_id: data.persona_id,
         },
         headers: {
+          'Authorization': req.headers.authorization || '',
+          'X-API-Key': req.headers['x-api-key'] as string || '',
           'X-Tenant-ID': req.context!.tenant_id,
           'X-Request-ID': req.context!.request_id,
         },
@@ -116,12 +126,12 @@ router.post(
         success: true,
         data: {
           conversation_id: conversationId,
-          response_text: llmResult.data.response,
-          audio_base64: ttsResult.data.audio_base64,
-          audio_url: ttsResult.data.audio_url,
+          response_text: llmResult.data.data.response,
+          audio_base64: ttsResult.data.data.audio_base64,
+          audio_url: ttsResult.data.data.audio_url,
           detected_language: data.language,
           transcript,
-          tool_calls: llmResult.data.tool_calls,
+          tool_calls: llmResult.data.data.tool_calls,
           metadata: {
             stt_latency_ms: sttLatency,
             llm_latency_ms: llmLatency,

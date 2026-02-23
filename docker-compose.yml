@@ -91,7 +91,7 @@ services:
       FLOWISE_URL: http://flowise:3000
       ORCHESTRATOR_URL: http://orchestrator:4002
       EMAIL_SERVICE_URL: http://email:4003
-      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173,https://admin.voice.santhira.com,https://admin.voice.api.santhira.com
       LOG_LEVEL: debug
     depends_on:
       auth:
@@ -318,6 +318,27 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:4004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - voice-saas
+
+  # ============================================
+  # Dashboard
+  # ============================================
+  dashboard:
+    build:
+      context: ./services/dashboard
+      dockerfile: Dockerfile
+    container_name: voice-saas-dashboard
+    ports:
+      - "5173:5173"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5173/health"]
       interval: 30s
       timeout: 10s
       retries: 3

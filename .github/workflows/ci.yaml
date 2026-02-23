@@ -20,6 +20,7 @@ jobs:
       stt: ${{ steps.filter.outputs.stt }}
       tts: ${{ steps.filter.outputs.tts }}
       rag: ${{ steps.filter.outputs.rag }}
+      dashboard: ${{ steps.filter.outputs.dashboard }}
       k8s: ${{ steps.filter.outputs.k8s }}
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +44,8 @@ jobs:
               - 'services/tts/**'
             rag:
               - 'services/rag/**'
+            dashboard:
+              - 'services/dashboard/**'
             k8s:
               - 'k8s/**'
 
@@ -148,6 +151,36 @@ jobs:
         run: pytest -v
         working-directory: services/${{ matrix.service.name }}
 
+  # ─── Dashboard (Frontend) ───
+  ci-dashboard:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.dashboard == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: services/dashboard/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: services/dashboard
+
+      - name: Lint
+        run: npm run lint
+        working-directory: services/dashboard
+
+      - name: Type check
+        run: npm run typecheck
+        working-directory: services/dashboard
+
+      - name: Build
+        run: npm run build
+        working-directory: services/dashboard
+
   # ─── K8s Manifest Validation ───
   validate-k8s:
     needs: detect-changes
@@ -173,13 +206,14 @@ jobs:
   # ─── Status Gate ───
   ci-complete:
     if: always()
-    needs: [ci-node, ci-python, validate-k8s]
+    needs: [ci-node, ci-python, ci-dashboard, validate-k8s]
     runs-on: ubuntu-latest
     steps:
       - name: Check CI results
         run: |
           if [[ "${{ needs.ci-node.result }}" == "failure" ]] || \
              [[ "${{ needs.ci-python.result }}" == "failure" ]] || \
+             [[ "${{ needs.ci-dashboard.result }}" == "failure" ]] || \
              [[ "${{ needs.validate-k8s.result }}" == "failure" ]]; then
             echo "CI failed"
             exit 1

@@ -92,7 +92,7 @@ app.use('/auth', async (req: Request, res: Response, next: NextFunction) => {
     const result = await proxyRequest({
       service: 'auth',
       method: req.method as 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
-      path: req.path,
+      path: `/auth${req.path}`,
       data: req.body,
       params: req.query as Record<string, string>,
       headers: {
@@ -128,6 +128,32 @@ app.use('/tenants', async (req: Request, res: Response, next: NextFunction) => {
     next(err);
   }
 });
+
+// Proxy dashboard routes → auth service
+const dashboardPaths = ['/dashboard', '/call-logs', '/analytics', '/agents', '/billing', '/phone-numbers', '/api-keys', '/users'];
+for (const basePath of dashboardPaths) {
+  app.use(basePath, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { proxyRequest } = await import('./services/proxyService.js');
+      const result = await proxyRequest({
+        service: 'auth',
+        method: req.method as 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+        path: `${basePath}${req.path}`,
+        data: req.body,
+        params: req.query as Record<string, string>,
+        headers: {
+          'Authorization': req.headers.authorization || '',
+          'X-API-Key': req.headers['x-api-key'] as string || '',
+          'X-Request-ID': req.headers['x-request-id'] as string,
+          'X-Tenant-ID': req.headers['x-tenant-id'] as string || '',
+        },
+      });
+      res.status(result.status).json(result.data);
+    } catch (err) {
+      next(err);
+    }
+  });
+}
 
 // Error handling
 app.use(notFoundHandler);

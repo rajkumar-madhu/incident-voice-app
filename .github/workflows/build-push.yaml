@@ -28,7 +28,7 @@ jobs:
         run: |
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             # On tags, build all services
-            echo 'matrix=["auth","api-gateway","orchestrator","email","webvoice","stt","tts","rag"]' >> "$GITHUB_OUTPUT"
+            echo 'matrix=["auth","api-gateway","orchestrator","email","webvoice","stt","tts","rag","dashboard"]' >> "$GITHUB_OUTPUT"
           else
             # On branch push, detect changed services
             CHANGED=$(git diff --name-only HEAD~1 HEAD | grep '^services/' | cut -d'/' -f2 | sort -u | jq -R -s -c 'split("\n") | map(select(length > 0))')

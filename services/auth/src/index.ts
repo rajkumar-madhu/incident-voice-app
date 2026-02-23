@@ -15,6 +15,13 @@ import authRoutes from './routes/auth.js';
 import tenantRoutes from './routes/tenants.js';
 import userRoutes from './routes/users.js';
 import apiKeyRoutes from './routes/apiKeys.js';
+import dashboardRoutes from './routes/dashboard.js';
+import callLogRoutes from './routes/callLogs.js';
+import analyticsRoutes from './routes/analytics.js';
+import agentRoutes from './routes/agents.js';
+import billingRoutes from './routes/billing.js';
+import phoneNumberRoutes from './routes/phoneNumbers.js';
+import { startCallLogSubscriber, stopCallLogSubscriber } from './services/callLogSubscriber.js';
 
 const app = express();
 
@@ -82,6 +89,12 @@ app.use('/auth', authRoutes);
 app.use('/tenants', tenantRoutes);
 app.use('/users', userRoutes);
 app.use('/api-keys', apiKeyRoutes);
+app.use('/dashboard', dashboardRoutes);
+app.use('/call-logs', callLogRoutes);
+app.use('/analytics', analyticsRoutes);
+app.use('/agents', agentRoutes);
+app.use('/billing', billingRoutes);
+app.use('/phone-numbers', phoneNumberRoutes);
 
 // Error handling
 app.use(notFoundHandler);
@@ -93,6 +106,7 @@ const shutdown = async (signal: string) => {
 
   // Close connections
   await Promise.all([
+    stopCallLogSubscriber(),
     closePool(),
     closeRedis(),
   ]);
@@ -109,6 +123,9 @@ const start = async () => {
   try {
     // Initialize Redis connection
     await getRedisClient();
+
+    // Start call log subscriber
+    await startCallLogSubscriber();
 
     app.listen(config.port, () => {
       logger.info({
