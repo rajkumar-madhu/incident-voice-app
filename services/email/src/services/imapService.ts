@@ -57,7 +57,18 @@ export const fetchEmails = (config: {
               }
             });
           });
-          msg.once('end', () => { emails.push(email as FetchedEmail); });
+          msg.once('end', () => {
+            emails.push({
+              messageId: email.messageId || '',
+              from: email.from || '',
+              to: email.to || [],
+              cc: email.cc || [],
+              subject: email.subject || '',
+              textBody: email.textBody || '',
+              htmlBody: email.htmlBody || null,
+              date: email.date || new Date(),
+            });
+          });
         });
 
         f.once('error', (err) => { logger.error({ err }, 'IMAP fetch error'); });

@@ -3,10 +3,18 @@ import { logger } from '../utils/logger.js';
 import { NotFoundError, ConflictError } from '../middleware/errorHandler.js';
 import type { CreateAgent, UpdateAgent, Agent } from '../types/dashboard.js';
 
+/**
+ * Strip sensitive fields from agent before returning to API consumers
+ */
+const sanitizeAgent = (agent: Agent): Omit<Agent, 'webhook_secret'> => {
+  const { webhook_secret: _secret, ...safe } = agent;
+  return safe;
+};
+
 export const createAgent = async (
   tenantId: string,
   data: CreateAgent
-): Promise<Agent> => {
+): Promise<Omit<Agent, 'webhook_secret'>> => {
   const existing = await query<{ id: string }>(
     'SELECT id FROM agents WHERE tenant_id = $1 AND name = $2',
     [tenantId, data.name]
@@ -37,10 +45,13 @@ export const createAgent = async (
   );
 
   logger.info({ agentId: agents[0].id, tenantId }, 'Agent created');
-  return agents[0];
+  return sanitizeAgent(agents[0]);
 };
 
-export const getAgentById = async (
+/**
+ * Internal: get full agent including webhook_secret (for duplication/webhook dispatch)
+ */
+const getAgentByIdInternal = async (
   agentId: string,
   tenantId: string
 ): Promise<Agent> => {
@@ -56,26 +67,35 @@ export const getAgentById = async (
   return agents[0];
 };
 
+export const getAgentById = async (
+  agentId: string,
+  tenantId: string
+): Promise<Omit<Agent, 'webhook_secret'>> => {
+  return sanitizeAgent(await getAgentByIdInternal(agentId, tenantId));
+};
+
 export const listAgents = async (
   tenantId: string,
   includeInactive = false
-): Promise<Agent[]> => {
+): Promise<Omit<Agent, 'webhook_secret'>[]> => {
   const whereClause = includeInactive
     ? 'WHERE tenant_id = $1'
     : 'WHERE tenant_id = $1 AND is_active = true';
 
-  return query<Agent>(
+  const agents = await query<Agent>(
     `SELECT * FROM agents ${whereClause} ORDER BY created_at DESC`,
     [tenantId]
   );
+
+  return agents.map(sanitizeAgent);
 };
 
 export const updateAgent = async (
   agentId: string,
   tenantId: string,
   data: UpdateAgent
-): Promise<Agent> => {
-  const existing = await getAgentById(agentId, tenantId);
+): Promise<Omit<Agent, 'webhook_secret'>> => {
+  const existing = await getAgentByIdInternal(agentId, tenantId);
 
   if (data.name && data.name !== existing.name) {
     const duplicate = await query<{ id: string }>(
@@ -131,14 +151,14 @@ export const updateAgent = async (
   );
 
   logger.info({ agentId, tenantId }, 'Agent updated');
-  return agents[0];
+  return sanitizeAgent(agents[0]);
 };
 
 export const deleteAgent = async (
   agentId: string,
   tenantId: string
 ): Promise<void> => {
-  await getAgentById(agentId, tenantId);
+  await getAgentByIdInternal(agentId, tenantId);
 
   await query(
     'UPDATE agents SET is_active = false WHERE id = $1 AND tenant_id = $2',
@@ -151,37 +171,50 @@ export const deleteAgent = async (
 export const duplicateAgent = async (
   agentId: string,
   tenantId: string
-): Promise<Agent> => {
-  const source = await getAgentById(agentId, tenantId);
+): Promise<Omit<Agent, 'webhook_secret'>> => {
+  const source = await getAgentByIdInternal(agentId, tenantId);
 
-  let copyName = `${source.name} (copy)`;
-  let suffix = 2;
-  while (true) {
-    const existing = await query<{ id: string }>(
-      'SELECT id FROM agents WHERE tenant_id = $1 AND name = $2',
-      [tenantId, copyName]
+  return await transaction(async (client) => {
+    let copyName = `${source.name} (copy)`;
+    let suffix = 2;
+    const MAX_ATTEMPTS = 20;
+
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      const existing = await client.query(
+        'SELECT id FROM agents WHERE tenant_id = $1 AND name = $2',
+        [tenantId, copyName]
+      );
+      if (existing.rows.length === 0) break;
+      copyName = `${source.name} (copy ${suffix})`;
+      suffix++;
+    }
+
+    const enabledTools = Array.isArray(source.enabled_tools)
+      ? source.enabled_tools
+      : [];
+
+    const agents = await client.query(
+      `INSERT INTO agents (
+        tenant_id, name, description, system_prompt, model, temperature,
+        max_tokens, voice_id, language, greeting_message, end_call_phrases,
+        enabled_tools, rag_enabled, rag_collection_id, webhook_url, webhook_events,
+        webhook_secret
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+      RETURNING *`,
+      [
+        tenantId, copyName, source.description || null, source.system_prompt,
+        source.model, Number(source.temperature), source.max_tokens, source.voice_id,
+        source.language, source.greeting_message || null,
+        source.end_call_phrases || ['goodbye', 'bye', 'end call'],
+        JSON.stringify(enabledTools), source.rag_enabled,
+        source.rag_collection_id || null, source.webhook_url || null,
+        source.webhook_events || ['call.completed', 'call.failed'],
+        source.webhook_secret || null,
+      ]
     );
-    if (existing.length === 0) break;
-    copyName = `${source.name} (copy ${suffix})`;
-    suffix++;
-  }
 
-  return createAgent(tenantId, {
-    name: copyName,
-    description: source.description || undefined,
-    system_prompt: source.system_prompt,
-    model: source.model,
-    temperature: Number(source.temperature),
-    max_tokens: source.max_tokens,
-    voice_id: source.voice_id,
-    language: source.language,
-    greeting_message: source.greeting_message || undefined,
-    end_call_phrases: source.end_call_phrases,
-    enabled_tools: source.enabled_tools as Record<string, unknown>[] | undefined,
-    rag_enabled: source.rag_enabled,
-    rag_collection_id: source.rag_collection_id || undefined,
-    webhook_url: source.webhook_url || undefined,
-    webhook_events: source.webhook_events,
-    webhook_secret: source.webhook_secret || undefined,
+    const newAgent = agents.rows[0] as Agent;
+    logger.info({ agentId: newAgent.id, sourceId: agentId, tenantId }, 'Agent duplicated');
+    return sanitizeAgent(newAgent);
   });
 };

@@ -153,9 +153,9 @@ export const getCallLogById = async (
     transcript = await query(
       `SELECT role, content, created_at
        FROM conversation_messages
-       WHERE conversation_id = $1
+       WHERE conversation_id = $1 AND tenant_id = $2
        ORDER BY created_at ASC`,
-      [callLog.conversation_id]
+      [callLog.conversation_id, tenantId]
     );
   }
 
