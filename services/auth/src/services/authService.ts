@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { config } from '../config.js';
 import { query } from '../db/postgres.js';
-import { blacklistToken } from '../db/redis.js';
+import { blacklistToken, isTokenBlacklisted } from '../db/redis.js';
 import { logger } from '../utils/logger.js';
 import { ValidationError, AuthenticationError, ConflictError } from '../middleware/errorHandler.js';
 import type { CreateUser, Login, User, JwtPayload } from '../types/index.js';
@@ -165,7 +165,15 @@ export const loginUser = async (data: Login): Promise<{ user: User; tokens: Toke
  */
 export const refreshAccessToken = async (refreshToken: string): Promise<TokenPair> => {
   try {
-    const payload = jwt.verify(refreshToken, config.jwtSecret) as JwtPayload;
+    // Check if refresh token has been blacklisted (e.g., on logout)
+    const blacklisted = await isTokenBlacklisted(refreshToken);
+    if (blacklisted) {
+      throw new AuthenticationError('Refresh token has been revoked');
+    }
+
+    const payload = jwt.verify(refreshToken, config.jwtSecret, {
+      algorithms: ['HS256'],
+    }) as JwtPayload;
 
     if (payload.type !== 'refresh') {
       throw new AuthenticationError('Invalid token type');
@@ -200,18 +208,36 @@ export const refreshAccessToken = async (refreshToken: string): Promise<TokenPai
 /**
  * Logout user (blacklist token)
  */
-export const logoutUser = async (token: string): Promise<void> => {
+export const logoutUser = async (accessToken: string, refreshToken?: string): Promise<void> => {
   try {
-    const payload = jwt.decode(token) as JwtPayload;
-    if (payload?.exp) {
-      const ttl = payload.exp - Math.floor(Date.now() / 1000);
+    // Blacklist the access token
+    const accessPayload = jwt.decode(accessToken) as JwtPayload;
+    if (accessPayload?.exp) {
+      const ttl = accessPayload.exp - Math.floor(Date.now() / 1000);
       if (ttl > 0) {
-        await blacklistToken(token, ttl);
+        await blacklistToken(accessToken, ttl);
       }
     }
-    logger.info({ userId: payload?.sub }, 'User logged out');
-  } catch {
-    // Ignore decode errors
+
+    // Blacklist the refresh token if provided
+    if (refreshToken) {
+      const refreshPayload = jwt.decode(refreshToken) as JwtPayload;
+      if (refreshPayload?.exp) {
+        const ttl = refreshPayload.exp - Math.floor(Date.now() / 1000);
+        if (ttl > 0) {
+          await blacklistToken(refreshToken, ttl);
+        }
+      }
+    }
+
+    logger.info({ userId: accessPayload?.sub }, 'User logged out');
+  } catch (err) {
+    // Only ignore JWT decode errors, rethrow Redis errors
+    if (err instanceof jwt.JsonWebTokenError || err instanceof SyntaxError) {
+      logger.warn({ err: (err as Error).message }, 'Token decode error during logout');
+    } else {
+      throw err;
+    }
   }
 };
 
@@ -241,8 +267,8 @@ export const changePassword = async (
   const newPasswordHash = await bcrypt.hash(newPassword, config.apiKeyHashRounds);
 
   await query(
-    'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
-    [newPasswordHash, userId]
+    'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3',
+    [newPasswordHash, userId, tenantId]
   );
 
   logger.info({ userId }, 'Password changed');

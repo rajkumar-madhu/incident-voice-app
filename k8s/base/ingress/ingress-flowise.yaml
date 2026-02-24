@@ -8,11 +8,12 @@ metadata:
     # TLS
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    # IP whitelist for admin dashboard — replace with actual office/VPN IPs
-    nginx.ingress.kubernetes.io/whitelist-source-range: "0.0.0.0/0"
-    # Basic auth (uncomment after creating flowise-basic-auth secret)
-    # nginx.ingress.kubernetes.io/auth-type: basic
-    # nginx.ingress.kubernetes.io/auth-secret: flowise-basic-auth
+    # IP whitelist — restrict to office/VPN IPs (update with actual CIDRs)
+    nginx.ingress.kubernetes.io/whitelist-source-range: "129.212.244.14/32"
+    # Basic auth — requires flowise-basic-auth secret (htpasswd format)
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: flowise-basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Flowise Admin"
     # Security (snippets disabled on cluster)
     # Request size
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"

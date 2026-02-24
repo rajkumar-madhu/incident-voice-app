@@ -5,14 +5,35 @@ import { config } from '../config.js';
 import { authAttemptsTotal } from '../utils/metrics.js';
 import { AuthenticationError } from './errorHandler.js';
 import { query } from '../db/postgres.js';
+import { getRedisClient } from '../db/redis.js';
 import type { JwtPayload, ApiKey } from '../types/index.js';
+
+const isTokenBlacklisted = async (token: string): Promise<boolean> => {
+  try {
+    const client = await getRedisClient();
+    const result = await client.get(`blacklist:${token}`);
+    return result !== null;
+  } catch {
+    return false; // fail-open if Redis unavailable
+  }
+};
 
 const verifyJwt = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) throw new AuthenticationError('Missing or invalid Authorization header');
     const token = authHeader.substring(7);
-    const payload = jwt.verify(token, config.jwtSecret) as JwtPayload;
+
+    // Check if token has been revoked
+    const blacklisted = await isTokenBlacklisted(token);
+    if (blacklisted) {
+      authAttemptsTotal.inc({ type: 'jwt', status: 'failure' });
+      throw new AuthenticationError('Token has been revoked');
+    }
+
+    const payload = jwt.verify(token, config.jwtSecret, {
+      algorithms: ['HS256'],
+    }) as JwtPayload;
     if (payload.type !== 'access') throw new AuthenticationError('Invalid token type');
     req.context = { tenant_id: payload.tenant_id, user_id: payload.sub };
     authAttemptsTotal.inc({ type: 'jwt', status: 'success' });
@@ -28,9 +49,19 @@ const verifyApiKey = async (req: Request, _res: Response, next: NextFunction): P
   try {
     const apiKey = req.headers['x-api-key'] as string;
     if (!apiKey) throw new AuthenticationError('Missing X-API-Key header');
-    const parts = apiKey.split('_');
-    if (parts.length !== 2) { authAttemptsTotal.inc({ type: 'api_key', status: 'failure' }); throw new AuthenticationError('Invalid API key format'); }
-    const [prefix] = parts;
+
+    // Parse vsk_<prefix>_<secret> format
+    if (!apiKey.startsWith('vsk_')) {
+      authAttemptsTotal.inc({ type: 'api_key', status: 'failure' });
+      throw new AuthenticationError('Invalid API key format');
+    }
+    const secondUnderscoreIdx = apiKey.indexOf('_', 4);
+    if (secondUnderscoreIdx === -1) {
+      authAttemptsTotal.inc({ type: 'api_key', status: 'failure' });
+      throw new AuthenticationError('Invalid API key format');
+    }
+    const prefix = apiKey.substring(0, secondUnderscoreIdx);
+
     const keys = await query<ApiKey>('SELECT id, tenant_id, key_hash, scopes, is_active, expires_at FROM api_keys WHERE key_prefix = $1 AND is_active = true', [prefix]);
     if (keys.length === 0) { authAttemptsTotal.inc({ type: 'api_key', status: 'failure' }); throw new AuthenticationError('Invalid API key'); }
     const keyRecord = keys[0];

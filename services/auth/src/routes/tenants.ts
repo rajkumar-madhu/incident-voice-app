@@ -3,16 +3,17 @@ import { z } from 'zod';
 import * as tenantService from '../services/tenantService.js';
 import { CreateTenantSchema, UpdateTenantSchema } from '../types/index.js';
 import { authenticate, requireRole, enforceTenantIsolation } from '../middleware/auth.js';
-import { rateLimiter } from '../middleware/rateLimiter.js';
+import { rateLimiter, strictRateLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
 /**
  * POST /tenants
- * Create a new tenant (public for signup)
+ * Create a new tenant (public for signup, rate limited)
  */
 router.post(
   '/',
+  strictRateLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const data = CreateTenantSchema.parse(req.body);

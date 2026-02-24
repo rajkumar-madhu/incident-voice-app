@@ -33,8 +33,10 @@ export const verifyJwt = async (
       throw new AuthenticationError('Token has been revoked');
     }
 
-    // Verify token
-    const payload = jwt.verify(token, config.jwtSecret) as JwtPayload;
+    // Verify token with algorithm pinning
+    const payload = jwt.verify(token, config.jwtSecret, {
+      algorithms: ['HS256'],
+    }) as JwtPayload;
 
     if (payload.type !== 'access') {
       throw new AuthenticationError('Invalid token type');

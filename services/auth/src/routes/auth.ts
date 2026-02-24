@@ -14,6 +14,7 @@ const router = Router();
  */
 router.post(
   '/register',
+  strictRateLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const data = CreateUserSchema.parse(req.body);
@@ -92,8 +93,9 @@ router.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const token = req.headers.authorization?.substring(7);
+      const refreshToken = req.body?.refreshToken;
       if (token) {
-        await authService.logoutUser(token);
+        await authService.logoutUser(token, refreshToken);
       }
 
       res.json({

@@ -1,9 +1,35 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import axios from 'axios';
+import { createClient, RedisClientType } from 'redis';
 import { config, SERVICES } from '../config.js';
 import { logger } from '../utils/logger.js';
 import type { JwtPayload } from '../types/index.js';
+
+let redisClient: RedisClientType | null = null;
+
+const getRedis = async (): Promise<RedisClientType | null> => {
+  try {
+    if (redisClient && redisClient.isOpen) return redisClient;
+    redisClient = createClient({ url: config.redisUrl });
+    redisClient.on('error', (err) => { logger.error({ err }, 'Gateway Redis error'); });
+    await redisClient.connect();
+    return redisClient;
+  } catch {
+    return null;
+  }
+};
+
+const isTokenBlacklisted = async (token: string): Promise<boolean> => {
+  try {
+    const client = await getRedis();
+    if (!client) return false; // fail-open if Redis unavailable
+    const result = await client.get(`blacklist:${token}`);
+    return result !== null;
+  } catch {
+    return false; // fail-open
+  }
+};
 
 export class AuthError extends Error {
   constructor(
@@ -33,8 +59,16 @@ export const validateJwt = async (
 
     const token = authHeader.substring(7);
 
-    // Verify token locally for speed
-    const payload = jwt.verify(token, config.jwtSecret) as JwtPayload;
+    // Check if token has been revoked
+    const blacklisted = await isTokenBlacklisted(token);
+    if (blacklisted) {
+      throw new AuthError(401, 'Token has been revoked');
+    }
+
+    // Verify token locally with algorithm pinning
+    const payload = jwt.verify(token, config.jwtSecret, {
+      algorithms: ['HS256'],
+    }) as JwtPayload;
 
     if (payload.type !== 'access') {
       throw new AuthError(401, 'Invalid token type');
