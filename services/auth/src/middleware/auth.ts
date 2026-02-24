@@ -76,14 +76,20 @@ export const verifyApiKey = async (
       throw new AuthenticationError('Missing X-API-Key header');
     }
 
-    // API key format: prefix_secretkey (e.g., vsk_abc123...)
-    const parts = apiKey.split('_');
-    if (parts.length !== 2) {
+    // API key format: vsk_<8chars>_<secret> — prefix is everything before the second '_' after 'vsk_'
+    if (!apiKey.startsWith('vsk_')) {
       authAttemptsTotal.inc({ type: 'api_key', status: 'failure' });
       throw new AuthenticationError('Invalid API key format');
     }
 
-    const [prefix] = parts;
+    // key_prefix stored in DB is "vsk_<8chars>", extract it
+    const secondUnderscoreIdx = apiKey.indexOf('_', 4); // skip "vsk_"
+    if (secondUnderscoreIdx === -1) {
+      authAttemptsTotal.inc({ type: 'api_key', status: 'failure' });
+      throw new AuthenticationError('Invalid API key format');
+    }
+
+    const prefix = apiKey.substring(0, secondUnderscoreIdx);
 
     // Find API key by prefix
     const keys = await query<ApiKey>(
