@@ -28,7 +28,7 @@ vi.mock('../utils/logger.js', () => ({
 }));
 
 const { signupWithTenant, registerUser } = await import('../services/authService.js');
-const { SignupSchema } = await import('../types/index.js');
+const { SignupSchema, CreateUserSchema, LoginSchema } = await import('../types/index.js');
 const { ConflictError, AuthorizationError } = await import('../middleware/errorHandler.js');
 
 const TENANT = '11111111-1111-4111-8111-111111111111';
@@ -112,5 +112,48 @@ describe('registerUser', () => {
   it('refuses to add a user to a tenant other than the caller’s', async () => {
     await expect(registerUser(newUser, TENANT)).rejects.toBeInstanceOf(AuthorizationError);
     expect(query).not.toHaveBeenCalled();
+  });
+
+  it('refuses an email that already has an account in any tenant, ignoring case', async () => {
+    query
+      .mockResolvedValueOnce([{ id: TENANT }])
+      .mockResolvedValueOnce([{ '?column?': 1 }]);
+
+    await expect(
+      registerUser(CreateUserSchema.parse({ ...newUser, tenant_id: TENANT, email: 'Asha@Acme.example' }), TENANT)
+    ).rejects.toBeInstanceOf(ConflictError);
+
+    const [sql, params] = query.mock.calls[1];
+    expect(sql).toContain('lower(email)');
+    expect(sql).toContain('tenants');
+    expect(params).toEqual(['asha@acme.example']);
+  });
+
+  it('reports a concurrent duplicate as a conflict, not a server error', async () => {
+    query
+      .mockResolvedValueOnce([{ id: TENANT }])
+      .mockResolvedValueOnce([])
+      .mockRejectedValueOnce(Object.assign(new Error('duplicate key'), { code: '23505' }));
+
+    await expect(registerUser({ ...newUser, tenant_id: TENANT }, TENANT)).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it('returns the new user without signing anyone in as them', async () => {
+    query
+      .mockResolvedValueOnce([{ id: TENANT }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'u2', tenant_id: TENANT, email: 'mallory@example.com', role: 'user' }]);
+
+    const result = await registerUser({ ...newUser, tenant_id: TENANT }, TENANT);
+
+    expect(result.user.id).toBe('u2');
+    expect(result).not.toHaveProperty('tokens');
+  });
+});
+
+describe('email normalisation', () => {
+  it('lower-cases emails on every write schema', () => {
+    expect(CreateUserSchema.parse({ ...signup, tenant_id: TENANT }).email).toBe('asha@acme.example');
+    expect(LoginSchema.parse({ email: ' Asha@Acme.example ', password: 'x' }).email).toBe('asha@acme.example');
   });
 });

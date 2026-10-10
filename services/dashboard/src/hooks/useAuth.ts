@@ -22,6 +22,13 @@ function notifyListeners() {
   listeners.forEach((l) => l());
 }
 
+function startSession(accessToken: string, user: unknown) {
+  globalState = { token: accessToken, user: user as Record<string, unknown> };
+  localStorage.setItem('auth_token', accessToken);
+  api.setToken(accessToken);
+  notifyListeners();
+}
+
 export function useAuth() {
   const [, forceUpdate] = useState(0);
 
@@ -33,11 +40,12 @@ export function useAuth() {
 
   const login = useCallback(async (email: string, password: string, tenantId?: string) => {
     const res = await api.login(email, password, tenantId);
-    const { tokens: { accessToken }, user } = res.data;
-    globalState = { token: accessToken, user: user as Record<string, unknown> };
-    localStorage.setItem('auth_token', accessToken);
-    api.setToken(accessToken);
-    notifyListeners();
+    startSession(res.data.tokens.accessToken, res.data.user);
+  }, []);
+
+  const signup = useCallback(async (details: Parameters<typeof api.signup>[0]) => {
+    const res = await api.signup(details);
+    startSession(res.data.tokens.accessToken, res.data.user);
   }, []);
 
   const logout = useCallback(() => {
@@ -51,6 +59,7 @@ export function useAuth() {
     token: globalState.token,
     user: globalState.user,
     login,
+    signup,
     logout,
   };
 }

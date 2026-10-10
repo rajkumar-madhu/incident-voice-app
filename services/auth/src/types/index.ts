@@ -7,7 +7,7 @@ export type Plan = z.infer<typeof PlanSchema>;
 // Tenant schemas
 export const CreateTenantSchema = z.object({
   name: z.string().min(2).max(100),
-  email: z.string().email(),
+  email: z.string().trim().toLowerCase().email().max(255),
   plan: PlanSchema.default('free'),
   settings: z.record(z.unknown()).optional(),
 });
@@ -32,7 +32,7 @@ export type Tenant = z.infer<typeof TenantSchema>;
 // User schemas
 export const CreateUserSchema = z.object({
   tenant_id: z.string().uuid(),
-  email: z.string().email(),
+  email: z.string().trim().toLowerCase().email().max(255),
   password: z.string().min(8).max(128),
   name: z.string().min(2).max(100),
   role: z.enum(['admin', 'user', 'viewer']).default('user'),
@@ -50,7 +50,7 @@ export const SignupSchema = z.object({
 export type Signup = z.infer<typeof SignupSchema>;
 
 export const LoginSchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().toLowerCase().email(),
   password: z.string(),
   tenant_id: z.string().uuid().optional(),
 });

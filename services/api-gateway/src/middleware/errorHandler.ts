@@ -58,14 +58,18 @@ export const errorHandler = (
       message: e.message,
     }));
   } else if (err instanceof AxiosError) {
-    // Upstream service error
     statusCode = err.response?.status || 502;
-    code = 'UPSTREAM_ERROR';
-    message = err.response?.data?.error?.message || 'Upstream service error';
-    details = {
-      service: err.config?.baseURL,
-      timeout: err.code === 'ECONNABORTED',
-    };
+    const upstream = err.response?.data?.error;
+    if (statusCode < 500 && upstream?.message) {
+      // A client error is the service's answer to the caller; keep it intact.
+      code = upstream.code || 'UPSTREAM_ERROR';
+      message = upstream.message;
+      details = upstream.details;
+    } else {
+      code = 'UPSTREAM_ERROR';
+      message = upstream?.message || 'Upstream service error';
+      details = err.code === 'ECONNABORTED' ? { timeout: true } : undefined;
+    }
   }
 
   // Log error

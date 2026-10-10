@@ -45,15 +45,15 @@ router.post(
   requireRole('admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const data = CreateUserSchema.parse(req.body);
+      const data = CreateUserSchema.parse({
+        ...req.body,
+        tenant_id: req.context!.tenant_id,
+      });
       const result = await authService.registerUser(data, req.context!.tenant_id);
 
       res.status(201).json({
         success: true,
-        data: {
-          user: result.user,
-          tokens: result.tokens,
-        },
+        data: { user: result.user },
       });
     } catch (err) {
       next(err);

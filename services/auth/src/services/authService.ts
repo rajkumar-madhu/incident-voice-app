@@ -82,6 +82,13 @@ export const generateTokens = (user: User): TokenPair => {
 
 const UNIQUE_VIOLATION = '23505';
 
+// Login looks users up by email alone, so one email means one account across
+// every tenant. Migration 004 backs this with unique indexes on lower(email).
+const EMAIL_TAKEN_SQL = `SELECT 1 FROM users WHERE lower(email) = $1
+  UNION ALL
+  SELECT 1 FROM tenants WHERE lower(email) = $1
+  LIMIT 1`;
+
 /**
  * Public sign-up: a new organisation and its first admin, created together
  * so a failure never leaves a tenant without an owner.
@@ -93,14 +100,7 @@ export const signupWithTenant = async (
 
   try {
     return await transaction(async (client) => {
-      // Login looks users up by email alone, so one email means one account.
-      const taken = await client.query(
-        `SELECT 1 FROM users WHERE lower(email) = $1
-         UNION ALL
-         SELECT 1 FROM tenants WHERE lower(email) = $1
-         LIMIT 1`,
-        [data.email]
-      );
+      const taken = await client.query(EMAIL_TAKEN_SQL, [data.email]);
       if (taken.rowCount) {
         throw new ConflictError('An account with this email already exists');
       }
@@ -139,7 +139,7 @@ export const signupWithTenant = async (
 export const registerUser = async (
   data: CreateUser,
   actorTenantId: string
-): Promise<{ user: User; tokens: TokenPair }> => {
+): Promise<{ user: User }> => {
   if (data.tenant_id !== actorTenantId) {
     throw new AuthorizationError('Cannot add users to another tenant');
   }
@@ -154,34 +154,32 @@ export const registerUser = async (
     throw new ValidationError('Invalid tenant_id');
   }
 
-  // Check if email already exists for this tenant
-  const existing = await query<{ id: string }>(
-    'SELECT id FROM users WHERE email = $1 AND tenant_id = $2',
-    [data.email, data.tenant_id]
-  );
-
+  const existing = await query<unknown>(EMAIL_TAKEN_SQL, [data.email]);
   if (existing.length > 0) {
-    throw new ConflictError('Email already registered for this tenant');
+    throw new ConflictError('An account with this email already exists');
   }
 
-  // Hash password
   const passwordHash = await bcrypt.hash(data.password, config.apiKeyHashRounds);
-  const userId = uuidv4();
 
-  // Create user
-  const users = await query<User>(
-    `INSERT INTO users (id, tenant_id, email, password_hash, name, role, is_active, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, true, NOW(), NOW())
-     RETURNING id, tenant_id, email, name, role, is_active, created_at, updated_at`,
-    [userId, data.tenant_id, data.email, passwordHash, data.name, data.role]
-  );
+  let users: User[];
+  try {
+    users = await query<User>(
+      `INSERT INTO users (id, tenant_id, email, password_hash, name, role, is_active, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, true, NOW(), NOW())
+       RETURNING id, tenant_id, email, name, role, is_active, created_at, updated_at`,
+      [uuidv4(), data.tenant_id, data.email, passwordHash, data.name, data.role]
+    );
+  } catch (err) {
+    if ((err as { code?: string }).code === UNIQUE_VIOLATION) {
+      throw new ConflictError('An account with this email already exists');
+    }
+    throw err;
+  }
 
   const user = users[0];
-  const tokens = generateTokens(user);
-
   logger.info({ userId: user.id, tenantId: user.tenant_id }, 'User registered');
 
-  return { user, tokens };
+  return { user };
 };
 
 /**

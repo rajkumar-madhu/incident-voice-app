@@ -11,9 +11,7 @@
 #   ./setup.sh
 #
 # This script will:
-#   1. Create a Finspot tenant
-#   2. Register an admin user
-#   3. Login to get JWT token
+#   1-3. Sign up the Finspot organization and admin (or log in if it exists)
 #   4. Create an API key (for REST/WebSocket)
 #   5. Create an agent with webhook config
 #   6. Save all credentials to .env
@@ -32,7 +30,6 @@ ADMIN_EMAIL="${ADMIN_EMAIL:-admin@finspot.in}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-FinspotAdmin@2026!}"
 ADMIN_NAME="${ADMIN_NAME:-Finspot Admin}"
 TENANT_NAME="${TENANT_NAME:-Finspot}"
-PLAN="${PLAN:-pro}"
 
 WEBHOOK_SECRET="fswh_$(openssl rand -hex 16)"
 
@@ -61,70 +58,42 @@ fi
 echo "  Auth service is healthy."
 echo ""
 
-# ---- Step 1: Create Tenant ----
-echo "Step 1: Creating tenant '$TENANT_NAME'..."
-TENANT_RESPONSE=$(curl -sf "$AUTH_URL/tenants" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"name\": \"$TENANT_NAME\",
-    \"email\": \"$ADMIN_EMAIL\",
-    \"plan\": \"$PLAN\"
-  }" 2>&1) || {
-  echo "  Tenant may already exist, trying to continue..."
-  TENANT_RESPONSE=""
+# ---- Steps 1-3: Sign up (organization + admin), or log in if it already exists ----
+json_get() {
+  python3 -c "import sys,json
+d=json.load(sys.stdin)
+for k in sys.argv[1].split('.'):
+    d=d.get(k,{}) if isinstance(d,dict) else {}
+print(d if isinstance(d,str) else '')" "$1" 2>/dev/null || echo ""
 }
 
-if [ -n "$TENANT_RESPONSE" ]; then
-  TENANT_ID=$(echo "$TENANT_RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('tenant',{}).get('id', d.get('data',{}).get('id','')))" 2>/dev/null || echo "")
-  if [ -z "$TENANT_ID" ]; then
-    # Try jq if available
-    TENANT_ID=$(echo "$TENANT_RESPONSE" | jq -r '.data.tenant.id // .data.id // empty' 2>/dev/null || echo "")
-  fi
-fi
-
-if [ -z "$TENANT_ID" ]; then
-  echo "  Could not extract tenant_id. Please enter it manually."
-  read -p "  Tenant ID: " TENANT_ID
-fi
-echo "  Tenant ID: $TENANT_ID"
-echo ""
-
-# ---- Step 2: Register Admin User ----
-echo "Step 2: Registering admin user..."
-REGISTER_RESPONSE=$(curl -sf "$AUTH_URL/auth/register" \
+echo "Step 1: Signing up organization '$TENANT_NAME'..."
+AUTH_RESPONSE=$(curl -sf "$AUTH_URL/auth/signup" \
   -H "Content-Type: application/json" \
   -d "{
-    \"tenant_id\": \"$TENANT_ID\",
-    \"email\": \"$ADMIN_EMAIL\",
-    \"password\": \"$ADMIN_PASSWORD\",
+    \"organizationName\": \"$TENANT_NAME\",
     \"name\": \"$ADMIN_NAME\",
-    \"role\": \"admin\"
-  }" 2>&1) || {
-  echo "  User may already exist, logging in instead..."
-}
-echo "  Admin user ready."
-echo ""
-
-# ---- Step 3: Login ----
-echo "Step 3: Logging in..."
-LOGIN_RESPONSE=$(curl -sf "$AUTH_URL/auth/login" \
-  -H "Content-Type: application/json" \
-  -d "{
     \"email\": \"$ADMIN_EMAIL\",
-    \"password\": \"$ADMIN_PASSWORD\",
-    \"tenant_id\": \"$TENANT_ID\"
-  }")
+    \"password\": \"$ADMIN_PASSWORD\"
+  }" 2>&1) || {
+  echo "  Account may already exist, logging in instead..."
+  AUTH_RESPONSE=$(curl -sf "$AUTH_URL/auth/login" \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"email\": \"$ADMIN_EMAIL\",
+      \"password\": \"$ADMIN_PASSWORD\"
+    }") || AUTH_RESPONSE=""
+}
 
-JWT_TOKEN=$(echo "$LOGIN_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['tokens']['accessToken'])" 2>/dev/null || echo "")
-if [ -z "$JWT_TOKEN" ]; then
-  JWT_TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.data.tokens.accessToken // empty' 2>/dev/null || echo "")
-fi
+TENANT_ID=$(echo "$AUTH_RESPONSE" | json_get data.tenant.id)
+[ -z "$TENANT_ID" ] && TENANT_ID=$(echo "$AUTH_RESPONSE" | json_get data.user.tenant_id)
+JWT_TOKEN=$(echo "$AUTH_RESPONSE" | json_get data.tokens.accessToken)
 
-if [ -z "$JWT_TOKEN" ]; then
-  echo "  ERROR: Login failed. Response:"
-  echo "  $LOGIN_RESPONSE"
+if [ -z "$TENANT_ID" ] || [ -z "$JWT_TOKEN" ]; then
+  echo "  ERROR: Sign-up and login both failed."
   exit 1
 fi
+echo "  Tenant ID: $TENANT_ID"
 echo "  JWT Token: ${JWT_TOKEN:0:20}..."
 echo ""
 

@@ -1,33 +1,14 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import * as tenantService from '../services/tenantService.js';
-import { CreateTenantSchema, UpdateTenantSchema } from '../types/index.js';
+import { UpdateTenantSchema } from '../types/index.js';
 import { authenticate, requireRole, enforceTenantIsolation } from '../middleware/auth.js';
-import { rateLimiter, strictRateLimiter } from '../middleware/rateLimiter.js';
+import { rateLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
-/**
- * POST /tenants
- * Create a new tenant (public for signup, rate limited)
- */
-router.post(
-  '/',
-  strictRateLimiter,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const data = CreateTenantSchema.parse(req.body);
-      const tenant = await tenantService.createTenant(data);
-
-      res.status(201).json({
-        success: true,
-        data: { tenant },
-      });
-    } catch (err) {
-      next(err);
-    }
-  }
-);
+// Organisations are created only by POST /auth/signup, together with their
+// first admin; a standalone create would leave a tenant nobody can manage.
 
 /**
  * GET /tenants/:tenant_id

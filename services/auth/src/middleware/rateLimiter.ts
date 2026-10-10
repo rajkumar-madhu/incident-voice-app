@@ -79,7 +79,8 @@ export const createRateLimiter = (
     next: NextFunction
   ): Promise<void> => {
     const identifier = req.context?.tenant_id || req.ip;
-    const key = `ratelimit:custom:${identifier}:${Math.floor(Date.now() / (windowSeconds * 1000))}`;
+    const route = `${req.baseUrl}${req.path}`;
+    const key = `ratelimit:custom:${route}:${identifier}:${Math.floor(Date.now() / (windowSeconds * 1000))}`;
 
     try {
       const current = await incrementRateLimit(key, windowSeconds);

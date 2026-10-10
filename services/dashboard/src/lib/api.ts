@@ -46,14 +46,15 @@ class ApiClient {
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    if (res.status === 401) {
+    // A 401 from sign-in or sign-up is a wrong password, not an expired session.
+    if (res.status === 401 && path !== '/auth/login' && path !== '/auth/signup') {
       this.token = null;
       localStorage.removeItem('auth_token');
       window.location.href = '/login';
       throw new Error('Unauthorized');
     }
 
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
       throw new Error(data.error?.message || 'Request failed');
@@ -67,6 +68,13 @@ class ApiClient {
     return this.request<{ success: boolean; data: { tokens: { accessToken: string; refreshToken: string; expiresIn: number }; user: unknown } }>('/auth/login', {
       method: 'POST',
       body: { email, password, tenant_id: tenantId },
+    });
+  }
+
+  signup(body: { organizationName: string; name: string; email: string; password: string }) {
+    return this.request<{ success: boolean; data: { tokens: { accessToken: string; refreshToken: string; expiresIn: number }; user: unknown; tenant: unknown } }>('/auth/signup', {
+      method: 'POST',
+      body,
     });
   }
 
