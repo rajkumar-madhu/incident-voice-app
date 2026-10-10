@@ -38,6 +38,17 @@ export const CreateUserSchema = z.object({
   role: z.enum(['admin', 'user', 'viewer']).default('user'),
 });
 
+// Public sign-up: creates an organisation and its first admin. The role and
+// tenant are decided by the server, so the schema does not accept them.
+export const SignupSchema = z.object({
+  organizationName: z.string().trim().min(2).max(100),
+  name: z.string().trim().min(2).max(100),
+  email: z.string().trim().toLowerCase().email().max(255),
+  password: z.string().min(8).max(128),
+});
+
+export type Signup = z.infer<typeof SignupSchema>;
+
 export const LoginSchema = z.object({
   email: z.string().email(),
   password: z.string(),

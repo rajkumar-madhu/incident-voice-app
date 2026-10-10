@@ -2,11 +2,16 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { config } from '../config.js';
-import { query } from '../db/postgres.js';
+import { query, transaction } from '../db/postgres.js';
 import { blacklistToken, isTokenBlacklisted } from '../db/redis.js';
 import { logger } from '../utils/logger.js';
-import { ValidationError, AuthenticationError, ConflictError } from '../middleware/errorHandler.js';
-import type { CreateUser, Login, User, JwtPayload } from '../types/index.js';
+import {
+  ValidationError,
+  AuthenticationError,
+  AuthorizationError,
+  ConflictError,
+} from '../middleware/errorHandler.js';
+import type { CreateUser, Login, Signup, User, JwtPayload } from '../types/index.js';
 
 export interface TokenPair {
   accessToken: string;
@@ -75,10 +80,70 @@ export const generateTokens = (user: User): TokenPair => {
   };
 };
 
+const UNIQUE_VIOLATION = '23505';
+
 /**
- * Register a new user
+ * Public sign-up: a new organisation and its first admin, created together
+ * so a failure never leaves a tenant without an owner.
  */
-export const registerUser = async (data: CreateUser): Promise<{ user: User; tokens: TokenPair }> => {
+export const signupWithTenant = async (
+  data: Signup
+): Promise<{ tenant: { id: string; name: string; plan: string }; user: User; tokens: TokenPair }> => {
+  const passwordHash = await bcrypt.hash(data.password, config.apiKeyHashRounds);
+
+  try {
+    return await transaction(async (client) => {
+      // Login looks users up by email alone, so one email means one account.
+      const taken = await client.query(
+        `SELECT 1 FROM users WHERE lower(email) = $1
+         UNION ALL
+         SELECT 1 FROM tenants WHERE lower(email) = $1
+         LIMIT 1`,
+        [data.email]
+      );
+      if (taken.rowCount) {
+        throw new ConflictError('An account with this email already exists');
+      }
+
+      const tenantRows = await client.query(
+        `INSERT INTO tenants (id, name, email, plan, settings, is_active, created_at, updated_at)
+         VALUES ($1, $2, $3, 'free', '{}', true, NOW(), NOW())
+         RETURNING id, name, plan`,
+        [uuidv4(), data.organizationName, data.email]
+      );
+      const tenant = tenantRows.rows[0];
+
+      const userRows = await client.query(
+        `INSERT INTO users (id, tenant_id, email, password_hash, name, role, is_active, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, true, NOW(), NOW())
+         RETURNING id, tenant_id, email, name, role, is_active, created_at, updated_at`,
+        [uuidv4(), tenant.id, data.email, passwordHash, data.name, 'admin']
+      );
+
+      const user = userRows.rows[0] as User;
+      logger.info({ userId: user.id, tenantId: tenant.id }, 'Organisation signed up');
+      return { tenant, user, tokens: generateTokens(user) };
+    });
+  } catch (err) {
+    if ((err as { code?: string }).code === UNIQUE_VIOLATION) {
+      throw new ConflictError('An account with this email already exists');
+    }
+    throw err;
+  }
+};
+
+/**
+ * Add a user to the caller's own tenant. Only tenant admins reach this
+ * (the route enforces the role); the tenant check stops cross-tenant writes.
+ */
+export const registerUser = async (
+  data: CreateUser,
+  actorTenantId: string
+): Promise<{ user: User; tokens: TokenPair }> => {
+  if (data.tenant_id !== actorTenantId) {
+    throw new AuthorizationError('Cannot add users to another tenant');
+  }
+
   // Check if tenant exists
   const tenants = await query<{ id: string }>(
     'SELECT id FROM tenants WHERE id = $1 AND is_active = true',
@@ -124,7 +189,7 @@ export const registerUser = async (data: CreateUser): Promise<{ user: User; toke
  */
 export const loginUser = async (data: Login): Promise<{ user: User; tokens: TokenPair }> => {
   // Build query based on whether tenant_id is provided
-  let queryText = 'SELECT * FROM users WHERE email = $1 AND is_active = true';
+  let queryText = 'SELECT * FROM users WHERE lower(email) = lower($1) AND is_active = true';
   const queryParams: unknown[] = [data.email];
 
   if (data.tenant_id) {

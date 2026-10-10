@@ -26,6 +26,10 @@ import { startLiveEventSubscriber, stopLiveEventSubscriber } from './services/li
 
 const app = express();
 
+// Reached only through the api-gateway, which forwards the client IP in
+// X-Forwarded-For; without this every caller shares one rate-limit bucket.
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 app.use(cors({

@@ -25,7 +25,7 @@ router.post(
         tenant_id: req.context!.tenant_id,
       });
 
-      const result = await authService.registerUser(data);
+      const result = await authService.registerUser(data, req.context!.tenant_id);
 
       res.status(201).json({
         success: true,

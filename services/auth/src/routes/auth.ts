@@ -1,24 +1,52 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import * as authService from '../services/authService.js';
-import { CreateUserSchema, LoginSchema } from '../types/index.js';
-import { verifyJwt } from '../middleware/auth.js';
+import { CreateUserSchema, LoginSchema, SignupSchema } from '../types/index.js';
+import { authenticate, requireRole, verifyJwt } from '../middleware/auth.js';
 import { strictRateLimiter } from '../middleware/rateLimiter.js';
 import { ValidationError } from '../middleware/errorHandler.js';
 
 const router = Router();
 
 /**
+ * POST /auth/signup
+ * Public: create an organisation and its first admin, and sign them in
+ */
+router.post(
+  '/signup',
+  strictRateLimiter,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = SignupSchema.parse(req.body);
+      const result = await authService.signupWithTenant(data);
+
+      res.status(201).json({
+        success: true,
+        data: {
+          tenant: result.tenant,
+          user: result.user,
+          tokens: result.tokens,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
  * POST /auth/register
- * Register a new user
+ * Add a user to the caller's tenant (tenant admins only)
  */
 router.post(
   '/register',
   strictRateLimiter,
+  authenticate,
+  requireRole('admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const data = CreateUserSchema.parse(req.body);
-      const result = await authService.registerUser(data);
+      const result = await authService.registerUser(data, req.context!.tenant_id);
 
       res.status(201).json({
         success: true,

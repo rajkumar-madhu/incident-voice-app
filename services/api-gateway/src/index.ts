@@ -15,6 +15,10 @@ import twilioRoutes from './routes/twilio.js';
 
 const app = express();
 
+// One hop (the ingress controller) sits in front, so req.ip is the client.
+// Auth rate-limits sign-in by IP and sees only what the gateway forwards.
+app.set('trust proxy', 1);
+
 // Track active connections
 app.use((_req: Request, res: Response, next: NextFunction) => {
   activeConnections.inc();
@@ -99,6 +103,7 @@ app.use('/auth', async (req: Request, res: Response, next: NextFunction) => {
         'Authorization': req.headers.authorization || '',
         'X-API-Key': req.headers['x-api-key'] as string || '',
         'X-Request-ID': req.headers['x-request-id'] as string,
+        'X-Forwarded-For': req.ip || '',
       },
     });
     res.status(result.status).json(result.data);
@@ -121,6 +126,7 @@ app.use('/tenants', async (req: Request, res: Response, next: NextFunction) => {
         'Authorization': req.headers.authorization || '',
         'X-API-Key': req.headers['x-api-key'] as string || '',
         'X-Request-ID': req.headers['x-request-id'] as string,
+        'X-Forwarded-For': req.ip || '',
       },
     });
     res.status(result.status).json(result.data);
