@@ -1,0 +1,186 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth
+  namespace: voice-app
+spec:
+  selector:
+    app: auth
+  ports:
+    - name: http
+      port: 4001
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth
+  namespace: voice-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth
+  template:
+    metadata:
+      labels:
+        app: auth
+    spec:
+      containers:
+        - name: auth
+          image: harbor.wecrew.in/library/voice-auth:${IMAGE_TAG}
+          ports:
+            - containerPort: 4001
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: ALLOWED_ORIGINS
+              value: https://ai.voice.wecrew.in
+          envFrom:
+            - secretRef:
+                name: voice-app-auth-env
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4001
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4001
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: voice-app
+spec:
+  selector:
+    app: api-gateway
+  ports:
+    - name: http
+      port: 4000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: voice-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: harbor.wecrew.in/library/voice-api-gateway:${IMAGE_TAG}
+          ports:
+            - containerPort: 4000
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: ALLOWED_ORIGINS
+              value: https://ai.voice.wecrew.in
+            - name: AUTH_SERVICE_URL
+              value: http://auth:4001
+            # Voice services are not deployed yet; the gateway only needs auth to be ready.
+            - name: STT_SERVICE_URL
+              value: http://stt:4002
+            - name: TTS_SERVICE_URL
+              value: http://tts:4003
+            - name: RAG_SERVICE_URL
+              value: http://rag:4005
+            - name: FLOWISE_URL
+              value: http://flowise:3000
+            - name: ORCHESTRATOR_URL
+              value: http://orchestrator:4006
+          envFrom:
+            - secretRef:
+                name: voice-app-gateway-env
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 4000
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 4000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard
+  namespace: voice-app
+spec:
+  selector:
+    app: dashboard
+  ports:
+    - name: http
+      port: 5173
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard
+  namespace: voice-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dashboard
+  template:
+    metadata:
+      labels:
+        app: dashboard
+    spec:
+      containers:
+        - name: dashboard
+          image: harbor.wecrew.in/library/voice-dashboard:${IMAGE_TAG}
+          ports:
+            - containerPort: 5173
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5173
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5173
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
