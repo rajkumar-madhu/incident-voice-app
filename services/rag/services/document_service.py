@@ -1,3 +1,4 @@
+import json
 import uuid
 import structlog
 from typing import List, Optional, Dict, Any
@@ -61,9 +62,9 @@ async def ingest_document(
                 await conn.execute(
                     """INSERT INTO knowledge_documents
                        (id, tenant_id, title, content, embedding, metadata, chunk_index, parent_document_id)
-                       VALUES ($1, $2, $3, $4, $5::vector, $6, $7, $8)""",
+                       VALUES ($1, $2, $3, $4, $5::vector, $6::jsonb, $7, $8)""",
                     str(uuid.uuid4()), tenant_id, title, chunk,
-                    emb_str, metadata or {}, i, parent_id,
+                    emb_str, json.dumps(metadata or {}), i, parent_id,
                 )
 
     documents_ingested.labels(tenant_id=tenant_id).inc()
@@ -97,7 +98,7 @@ async def list_documents(tenant_id: str, limit: int = 50, offset: int = 0) -> Li
         {
             "id": str(row["id"]),
             "title": row["title"],
-            "metadata": dict(row["metadata"]) if row["metadata"] else {},
+            "metadata": (row["metadata"] if isinstance(row["metadata"], dict) else json.loads(row["metadata"])) if row["metadata"] else {},
             "chunk_count": row["chunk_count"],
             "created_at": row["created_at"].isoformat(),
         }

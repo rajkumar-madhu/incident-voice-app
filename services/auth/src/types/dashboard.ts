@@ -8,6 +8,31 @@ export const CallStatusSchema = z.enum(['completed', 'failed', 'abandoned', 'no_
 export const CallDirectionSchema = z.enum(['inbound', 'outbound']);
 export const SentimentSchema = z.enum(['positive', 'neutral', 'negative', 'mixed']);
 
+/**
+ * Supported webhook events:
+ * - call.completed    — Voice call finished successfully
+ * - call.failed       — Voice call errored out
+ * - call.abandoned    — Caller disconnected mid-call
+ * - call.started      — Voice call initiated (live update)
+ * - call.transcribed  — Speech-to-text result available (live update)
+ * - call.responded    — AI response generated (live update)
+ * - incident.created  — Call auto-classified as incident
+ * - problem.created   — Call auto-classified as problem
+ * - change.requested  — Call auto-classified as change request
+ */
+export const WebhookEventSchema = z.enum([
+  'call.completed',
+  'call.failed',
+  'call.abandoned',
+  'call.started',
+  'call.transcribed',
+  'call.responded',
+  'incident.created',
+  'problem.created',
+  'change.requested',
+]);
+export type WebhookEvent = z.infer<typeof WebhookEventSchema>;
+
 export const CreateAgentSchema = z.object({
   name: z.string().min(2).max(100),
   description: z.string().max(500).optional(),

@@ -22,6 +22,7 @@ import agentRoutes from './routes/agents.js';
 import billingRoutes from './routes/billing.js';
 import phoneNumberRoutes from './routes/phoneNumbers.js';
 import { startCallLogSubscriber, stopCallLogSubscriber } from './services/callLogSubscriber.js';
+import { startLiveEventSubscriber, stopLiveEventSubscriber } from './services/liveEventSubscriber.js';
 
 const app = express();
 
@@ -107,6 +108,7 @@ const shutdown = async (signal: string) => {
   // Close connections
   await Promise.all([
     stopCallLogSubscriber(),
+    stopLiveEventSubscriber(),
     closePool(),
     closeRedis(),
   ]);
@@ -124,8 +126,9 @@ const start = async () => {
     // Initialize Redis connection
     await getRedisClient();
 
-    // Start call log subscriber
+    // Start Redis subscribers for webhooks
     await startCallLogSubscriber();
+    await startLiveEventSubscriber();
 
     app.listen(config.port, () => {
       logger.info({

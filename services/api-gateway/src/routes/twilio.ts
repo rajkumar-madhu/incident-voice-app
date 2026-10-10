@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { validateTwilioSignature, extractCallerInfo } from '../middleware/twilioAuth.js';
 import { proxyRequest } from '../services/proxyService.js';
+import { publishTwilioCallEvent } from '../services/callEventPublisher.js';
 import { logger } from '../utils/logger.js';
 import { twilioCallsTotal, twilioCallDuration } from '../utils/metrics.js';
 
@@ -236,13 +237,45 @@ router.post(
       callDuration,
     }, 'Call status update');
 
-    // Clean up conversation on call end
+    // Clean up conversation on call end and publish event for webhooks + call logs
     if (['completed', 'busy', 'failed', 'no-answer', 'canceled'].includes(callStatus)) {
       const conversation = conversations.get(callSid);
 
       if (conversation) {
         const duration = (Date.now() - conversation.startTime) / 1000;
         twilioCallDuration.observe({ status: callStatus }, duration);
+
+        // Map Twilio status to internal status
+        const statusMap: Record<string, string> = {
+          'completed': 'completed',
+          'busy': 'busy',
+          'failed': 'failed',
+          'no-answer': 'no_answer',
+          'canceled': 'abandoned',
+        };
+
+        // Publish to Redis so auth service creates call log + fires webhooks
+        publishTwilioCallEvent({
+          session_id: callSid,
+          tenant_id: conversation.tenantId,
+          conversation_id: conversation.conversationId,
+          channel: 'twilio',
+          direction: 'inbound',
+          status: (statusMap[callStatus] || 'completed') as 'completed' | 'failed' | 'abandoned' | 'no_answer' | 'busy',
+          caller_number: req.body.From || undefined,
+          callee_number: req.body.To || undefined,
+          started_at: new Date(conversation.startTime).toISOString(),
+          ended_at: new Date().toISOString(),
+          duration_seconds: Math.round(duration * 100) / 100,
+          turn_count: conversation.turns,
+          stt_seconds: 0,
+          tts_characters: 0,
+          llm_tokens: 0,
+          total_cost_cents: 0,
+          tags: ['twilio'],
+          metadata: { call_sid: callSid, twilio_status: callStatus, call_duration: callDuration },
+        }).catch(err => logger.error({ err, callSid }, 'Failed to publish Twilio call event'));
+
         conversations.delete(callSid);
       }
 

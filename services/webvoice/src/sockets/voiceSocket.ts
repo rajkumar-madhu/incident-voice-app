@@ -8,6 +8,7 @@ import { transcribeAudio } from '../services/sttClient.js';
 import { synthesizeSpeech } from '../services/ttsClient.js';
 import { chat } from '../services/orchestratorClient.js';
 import { config } from '../config.js';
+import { publishLiveEvent } from '../services/liveEventPublisher.js';
 import type { VoiceSession } from '../types/index.js';
 
 interface SocketWithAuth extends Socket {
@@ -54,6 +55,16 @@ export const setupVoiceSocket = (io: Server): void => {
           sample_rate: config.audioSampleRate,
           language: data?.language || 'en',
         });
+
+        // Publish live event for real-time webhooks
+        publishLiveEvent({
+          event: 'call.started',
+          session_id: session.id,
+          tenant_id: auth.tenantId,
+          agent_id: session.metadata?.agentId as string | undefined,
+          timestamp: new Date().toISOString(),
+          data: { language: data?.language || 'en', channel: 'web' },
+        }).catch(() => {});
 
         logger.info({ sessionId: session.id, tenantId: auth.tenantId }, 'Voice session started');
       } catch (err) {
@@ -134,6 +145,15 @@ const processAudio = async (socket: SocketWithAuth): Promise<void> => {
       confidence: transcript.confidence,
     });
 
+    // Publish live transcription event
+    publishLiveEvent({
+      event: 'call.transcribed',
+      session_id: socket.voiceSession.id,
+      tenant_id: socket.authContext?.tenantId || '',
+      timestamp: new Date().toISOString(),
+      data: { text: transcript.text, language: transcript.language, confidence: transcript.confidence },
+    }).catch(() => {});
+
     // 2. Orchestrator
     const chatResult = await chat(
       transcript.text,
@@ -150,6 +170,15 @@ const processAudio = async (socket: SocketWithAuth): Promise<void> => {
       text: chatResult.response,
       conversation_id: chatResult.conversation_id,
     });
+
+    // Publish live AI response event
+    publishLiveEvent({
+      event: 'call.responded',
+      session_id: socket.voiceSession.id,
+      tenant_id: socket.authContext?.tenantId || '',
+      timestamp: new Date().toISOString(),
+      data: { text: chatResult.response, conversation_id: chatResult.conversation_id },
+    }).catch(() => {});
 
     // 3. TTS
     const ttsResult = await synthesizeSpeech(

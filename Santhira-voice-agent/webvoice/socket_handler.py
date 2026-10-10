@@ -6,13 +6,15 @@ import structlog
 from openai import AsyncOpenAI
 
 from config import settings
-from main import SYSTEM_PROMPT, run_agent_loop
+from main import SYSTEM_PROMPT, run_agent_loop, _generate_itsm_token
+from tools import set_auth_token
 from webvoice import openai_client
 from webvoice.session_manager import SessionManager
 
 logger = structlog.get_logger()
 
 sessions = SessionManager()
+_itsm_initialized = False
 
 
 def register_handlers(sio) -> None:  # noqa: ANN001 — socketio.AsyncServer
@@ -25,9 +27,30 @@ def register_handlers(sio) -> None:  # noqa: ANN001 — socketio.AsyncServer
 
     @sio.on("start-session")
     async def on_start_session(sid: str, data: dict | None = None) -> None:
+        global _itsm_initialized
+        # Authenticate with Argus ITSM on first session
+        if not _itsm_initialized:
+            token = await _generate_itsm_token()
+            if token:
+                set_auth_token(token)
+                logger.info("itsm_auth_ready")
+            _itsm_initialized = True
+
         session = sessions.create(sid)
-        session.messages.append({"role": "system", "content": SYSTEM_PROMPT})
-        logger.info("session_started", sid=sid, session_id=session.session_id)
+
+        # Language from client (default: en)
+        lang = (data or {}).get("language", "en")
+        session.language = lang
+
+        # Build system prompt with language instruction
+        prompt = SYSTEM_PROMPT
+        if lang and lang != "en":
+            lang_names = {"ta": "Tamil", "hi": "Hindi", "te": "Telugu", "kn": "Kannada", "ml": "Malayalam", "mr": "Marathi", "bn": "Bengali", "gu": "Gujarati", "pa": "Punjabi"}
+            lang_name = lang_names.get(lang, lang)
+            prompt += f"\n\nIMPORTANT: The user speaks {lang_name}. You MUST respond in {lang_name} language. Use {lang_name} script for your replies. Keep technical terms (incident numbers, server names, priorities like P1/P2) in English but everything else in {lang_name}."
+
+        session.messages.append({"role": "system", "content": prompt})
+        logger.info("session_started", sid=sid, session_id=session.session_id, language=lang)
         await sio.emit("session-ready", {"session_id": session.session_id}, to=sid)
 
     @sio.on("audio-chunk")
@@ -53,8 +76,8 @@ def register_handlers(sio) -> None:  # noqa: ANN001 — socketio.AsyncServer
             return
 
         try:
-            # 1. STT — transcribe audio
-            transcript = await openai_client.transcribe(client, audio_bytes)
+            # 1. STT — transcribe audio in the session's language
+            transcript = await openai_client.transcribe(client, audio_bytes, language=session.language)
             await sio.emit("transcript", {"text": transcript}, to=sid)
 
             if not transcript.strip():

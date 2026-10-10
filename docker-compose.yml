@@ -91,7 +91,7 @@ services:
       FLOWISE_URL: http://flowise:3000
       ORCHESTRATOR_URL: http://orchestrator:4002
       EMAIL_SERVICE_URL: http://email:4003
-      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173,https://admin.voice.santhira.com,https://admin.voice.api.santhira.com
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173,https://admin.voice.santhira.com,https://admin.voice.api.santhira.com,https://voice.clinic.santhira.com,https://fs-le-dev-inc.finspot.in
       LOG_LEVEL: debug
     depends_on:
       auth:
@@ -309,7 +309,7 @@ services:
       MAX_CONCURRENT_SESSIONS_PER_TENANT: 100
       AUDIO_SAMPLE_RATE: 16000
       VAD_SILENCE_THRESHOLD_MS: 1500
-      WIDGET_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173,http://localhost:8080
+      WIDGET_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173,http://localhost:8080,https://voice.clinic.santhira.com,https://fs-le-dev-inc.finspot.in
       LOG_LEVEL: debug
     depends_on:
       redis:

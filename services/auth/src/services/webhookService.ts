@@ -37,6 +37,14 @@ interface WebhookPayload {
     tts_ms: number | null;
     total_ms: number | null;
   };
+  // ITSM classification (populated for incident/problem/change events)
+  itsm?: {
+    type: 'incident' | 'problem' | 'change';
+    priority: 'critical' | 'high' | 'medium' | 'low';
+    category: string;
+    summary: string;
+    suggested_assignee?: string;
+  };
   metadata: Record<string, unknown>;
 }
 
@@ -139,7 +147,8 @@ export const dispatchWebhook = async (
   agentId: string,
   tenantId: string,
   event: string,
-  callLog: CallLog
+  callLog: CallLog,
+  itsmData?: { type: 'incident' | 'problem' | 'change'; priority: string; category: string; summary: string },
 ): Promise<void> => {
   const client = await getClient();
   try {
@@ -167,6 +176,16 @@ export const dispatchWebhook = async (
     }
 
     const payload = buildPayload(agent, event, callLog);
+
+    // Attach ITSM classification data if present
+    if (itsmData) {
+      payload.itsm = {
+        type: itsmData.type,
+        priority: itsmData.priority as 'critical' | 'high' | 'medium' | 'low',
+        category: itsmData.category,
+        summary: itsmData.summary,
+      };
+    }
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',

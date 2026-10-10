@@ -1,0 +1,109 @@
+<!--
+  Finspot Voice Agent Integration Snippet
+
+  Copy this into any page on https://fs-le-dev-inc.finspot.in
+  Replace YOUR_API_KEY and YOUR_TENANT_ID with values from setup script.
+-->
+
+<!-- Option 1: Floating voice button (recommended) -->
+<script
+  src="https://voice.santhira.com/integrations/finspot-embed.js"
+  data-api-key="YOUR_API_KEY"
+  data-tenant-id="YOUR_TENANT_ID"
+  data-lang="en"
+  data-position="bottom-right"
+  data-theme="dark">
+</script>
+
+<!--
+  Option 2: Full integration page (for /integrations route)
+  Visit: https://voice.santhira.com/integrations/finspot
+-->
+
+<!--
+  Option 3: Voice + ITSM Dashboard widget
+  Add this anywhere you want to show live call stats + tickets
+-->
+<div id="finspot-voice-dashboard"></div>
+<script>
+(function() {
+  var RECEIVER_URL = 'https://voice.api.santhira.com';
+  var container = document.getElementById('finspot-voice-dashboard');
+  if (!container) return;
+
+  // Styles
+  container.innerHTML = '\
+    <style>\
+      .fvd{font-family:system-ui,sans-serif;background:#111827;color:#f1f5f9;border-radius:12px;padding:16px;max-width:480px}\
+      .fvd h3{font-size:14px;font-weight:700;margin:0 0 12px;color:#a5b4fc}\
+      .fvd-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}\
+      .fvd-stat{background:#1f2937;padding:10px;border-radius:8px;text-align:center}\
+      .fvd-stat .val{font-size:20px;font-weight:700;color:#fff}\
+      .fvd-stat .lbl{font-size:11px;color:#94a3b8;margin-top:2px}\
+      .fvd-section{margin-top:12px}\
+      .fvd-section h4{font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin:0 0 6px}\
+      .fvd-item{background:#1f2937;padding:8px 10px;border-radius:6px;margin-bottom:4px;font-size:12px;display:flex;justify-content:space-between;align-items:center}\
+      .fvd-badge{padding:2px 6px;border-radius:10px;font-size:10px;font-weight:600}\
+      .fvd-badge.critical{background:#7f1d1d;color:#fca5a5}\
+      .fvd-badge.high{background:#78350f;color:#fcd34d}\
+      .fvd-badge.medium{background:#1e3a5f;color:#93c5fd}\
+      .fvd-badge.incident{background:#7f1d1d;color:#fca5a5}\
+      .fvd-badge.problem{background:#78350f;color:#fcd34d}\
+      .fvd-badge.change{background:#064e3b;color:#6ee7b7}\
+      .fvd-badge.active{background:#064e3b;color:#6ee7b7}\
+      .fvd-empty{color:#6b7280;font-size:12px;text-align:center;padding:12px}\
+    </style>\
+    <div class="fvd">\
+      <h3>Voice Agent Dashboard</h3>\
+      <div class="fvd-stats" id="fvd-stats"></div>\
+      <div class="fvd-section"><h4>Active Calls</h4><div id="fvd-active"></div></div>\
+      <div class="fvd-section"><h4>Recent Tickets</h4><div id="fvd-tickets"></div></div>\
+    </div>';
+
+  function fetch_json(path, cb) {
+    fetch(RECEIVER_URL + path)
+      .then(function(r) { return r.json(); })
+      .then(function(d) { cb(d.data || d); })
+      .catch(function() { cb(null); });
+  }
+
+  function refresh() {
+    // Stats
+    fetch_json('/api/voice/stats', function(s) {
+      if (!s) return;
+      document.getElementById('fvd-stats').innerHTML =
+        stat(s.active_calls, 'Active') +
+        stat(s.total_calls, 'Total Calls') +
+        stat(s.incidents, 'Incidents') +
+        stat(s.problems, 'Problems') +
+        stat(s.changes, 'Changes') +
+        stat(s.avg_duration + 's', 'Avg Duration');
+    });
+
+    // Active calls
+    fetch_json('/api/voice/active-calls', function(calls) {
+      var el = document.getElementById('fvd-active');
+      if (!calls || calls.length === 0) { el.innerHTML = '<div class="fvd-empty">No active calls</div>'; return; }
+      el.innerHTML = calls.map(function(c) {
+        return '<div class="fvd-item"><span>' + c.agent_name + ' (' + c.channel + ')</span><span class="fvd-badge active">LIVE</span></div>';
+      }).join('');
+    });
+
+    // Recent tickets
+    fetch_json('/api/voice/tickets', function(tickets) {
+      var el = document.getElementById('fvd-tickets');
+      if (!tickets || tickets.length === 0) { el.innerHTML = '<div class="fvd-empty">No tickets yet</div>'; return; }
+      el.innerHTML = tickets.slice(-5).reverse().map(function(t) {
+        return '<div class="fvd-item"><span>' + t.id + ' - ' + t.summary.slice(0, 40) + '</span><span class="fvd-badge ' + t.type + '">' + t.type.toUpperCase() + '</span> <span class="fvd-badge ' + t.priority + '">' + t.priority + '</span></div>';
+      }).join('');
+    });
+  }
+
+  function stat(val, label) {
+    return '<div class="fvd-stat"><div class="val">' + val + '</div><div class="lbl">' + label + '</div></div>';
+  }
+
+  refresh();
+  setInterval(refresh, 5000); // Refresh every 5s
+})();
+</script>

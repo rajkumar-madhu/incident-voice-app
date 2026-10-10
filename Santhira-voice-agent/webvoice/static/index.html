@@ -100,6 +100,37 @@
     gap: 16px;
     align-items: center;
   }
+  /* Text input */
+  #textBar {
+    padding: 12px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+  }
+  #textInput {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+  }
+  #textInput:focus { border-color: var(--accent); }
+  #textInput::placeholder { color: var(--muted); }
+  #sendBtn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  #sendBtn:hover { background: var(--accent-hover); }
+  #sendBtn:disabled { opacity: 0.4; cursor: not-allowed; }
   button {
     border: none;
     border-radius: 50%;
@@ -175,7 +206,10 @@
   let recording = false;
 
   // ── Socket.IO ──────────────────────────────────────────
-  socket = io({ transports: ['websocket'] });
+  // Auto-detect base path: works at /santhira/ (ingress) and / (NodePort)
+  const basePath = window.location.pathname.replace(/\/+$/, '');
+  const sioPath = (basePath || '') + '/socket.io/';
+  socket = io({ path: sioPath, transports: ['websocket'] });
 
   socket.on('connect', () => {
     statusEl.textContent = 'Connected';

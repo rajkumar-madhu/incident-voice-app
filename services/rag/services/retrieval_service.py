@@ -62,7 +62,7 @@ async def retrieve(
                 "title": row["title"],
                 "content": row["content"],
                 "similarity": round(float(row["similarity"]), 4),
-                "metadata": dict(row["metadata"]) if row["metadata"] else {},
+                "metadata": (row["metadata"] if isinstance(row["metadata"], dict) else json.loads(row["metadata"])) if row["metadata"] else {},
                 "chunk_index": row["chunk_index"],
             }
             for row in rows

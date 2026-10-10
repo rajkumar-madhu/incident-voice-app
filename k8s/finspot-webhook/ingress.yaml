@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: finspot-webhook-ingress
+  namespace: linkedeye-itsm
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://fs-le-dev-inc.finspot.in,https://admin.santhira.com,https://voice.santhira.com"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Authorization, Content-Type, X-API-Key, X-Webhook-Event, X-Request-ID"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - fs-le-dev-inc-api.finspot.in
+      secretName: finspot-api-tls
+  rules:
+    - host: fs-le-dev-inc-api.finspot.in
+      http:
+        paths:
+          - path: /api/webhooks/voice
+            pathType: Prefix
+            backend:
+              service:
+                name: finspot-webhook
+                port:
+                  number: 3100
+          - path: /api/voice
+            pathType: Prefix
+            backend:
+              service:
+                name: finspot-webhook
+                port:
+                  number: 3100

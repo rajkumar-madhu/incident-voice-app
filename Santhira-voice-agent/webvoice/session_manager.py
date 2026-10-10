@@ -11,6 +11,7 @@ from webvoice.audio_buffer import AudioBuffer
 @dataclass
 class Session:
     session_id: str
+    language: str = "en"
     messages: list[dict] = field(default_factory=list)
     audio_buffer: AudioBuffer = field(default_factory=AudioBuffer)
 

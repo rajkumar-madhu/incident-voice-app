@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Finspot Voice Agent Integration</title>
+  <style>
+    :root {
+      --fs-primary: #4f46e5;
+      --fs-primary-hover: #4338ca;
+      --fs-primary-glow: rgba(79, 70, 229, 0.35);
+      --fs-bg: #0b0f1a;
+      --fs-surface: #111827;
+      --fs-surface-2: #1f2937;
+      --fs-border: #374151;
+      --fs-text: #f1f5f9;
+      --fs-text-muted: #94a3b8;
+      --fs-success: #10b981;
+      --fs-error: #ef4444;
+      --fs-warning: #f59e0b;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--fs-bg);
+      color: var(--fs-text);
+      min-height: 100vh;
+    }
+
+    /* ---- Layout ---- */
+    .page { display: flex; flex-direction: column; min-height: 100vh; }
+
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 24px;
+      background: var(--fs-surface);
+      border-bottom: 1px solid var(--fs-border);
+    }
+    .topbar-logo { display: flex; align-items: center; gap: 10px; }
+    .topbar-logo svg { width: 28px; height: 28px; }
+    .topbar-logo span { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+    .topbar-badge {
+      font-size: 11px; font-weight: 600; padding: 3px 8px;
+      border-radius: 20px; background: var(--fs-primary); color: white;
+    }
+
+    .main { display: flex; flex: 1; }
+
+    .sidebar {
+      width: 320px; padding: 20px; overflow-y: auto;
+      background: var(--fs-surface); border-right: 1px solid var(--fs-border);
+    }
+
+    .chat-area { flex: 1; display: flex; flex-direction: column; }
+
+    /* ---- Sidebar ---- */
+    .section-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.8px; color: var(--fs-text-muted); margin-bottom: 10px;
+    }
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 13px; color: var(--fs-text-muted); margin-bottom: 5px; }
+    .field input, .field select {
+      width: 100%; padding: 9px 12px;
+      background: var(--fs-bg); border: 1px solid var(--fs-border);
+      border-radius: 8px; color: var(--fs-text); font-size: 13px;
+      transition: border-color 0.2s;
+    }
+    .field input:focus, .field select:focus {
+      outline: none; border-color: var(--fs-primary);
+      box-shadow: 0 0 0 3px var(--fs-primary-glow);
+    }
+    .field input::placeholder { color: #4b5563; }
+    .field .hint { font-size: 11px; color: #6b7280; margin-top: 4px; }
+
+    .radio-group { display: flex; gap: 8px; margin-bottom: 14px; }
+    .radio-group label {
+      flex: 1; text-align: center; padding: 8px;
+      border: 1px solid var(--fs-border); border-radius: 8px;
+      font-size: 13px; cursor: pointer; transition: all 0.2s;
+    }
+    .radio-group input { display: none; }
+    .radio-group input:checked + label {
+      border-color: var(--fs-primary); background: rgba(79, 70, 229, 0.12);
+      color: #a5b4fc;
+    }
+
+    .divider { border: none; border-top: 1px solid var(--fs-border); margin: 16px 0; }
+
+    /* ---- Status indicator ---- */
+    .status-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px; border-radius: 10px;
+      font-size: 13px; font-weight: 500; margin-bottom: 16px;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .status-bar.disconnected { background: rgba(239, 68, 68, 0.1); color: #fca5a5; }
+    .status-bar.disconnected .status-dot { background: var(--fs-error); }
+    .status-bar.connecting { background: rgba(245, 158, 11, 0.1); color: #fcd34d; }
+    .status-bar.connecting .status-dot { background: var(--fs-warning); animation: blink 1s infinite; }
+    .status-bar.connected { background: rgba(16, 185, 129, 0.1); color: #6ee7b7; }
+    .status-bar.connected .status-dot { background: var(--fs-success); }
+    .status-bar.recording { background: rgba(79, 70, 229, 0.1); color: #a5b4fc; }
+    .status-bar.recording .status-dot { background: var(--fs-primary); animation: pulse-dot 1.5s infinite; }
+
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    @keyframes pulse-dot {
+      0%,100%{ box-shadow: 0 0 0 0 var(--fs-primary-glow); }
+      50%{ box-shadow: 0 0 0 6px transparent; }
+    }
+
+    /* ---- Chat ---- */
+    .chat-header {
+      padding: 14px 24px; background: var(--fs-surface);
+      border-bottom: 1px solid var(--fs-border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .chat-header h2 { font-size: 15px; font-weight: 600; }
+    .chat-header .session-id { font-size: 11px; color: var(--fs-text-muted); font-family: monospace; }
+
+    .messages {
+      flex: 1; overflow-y: auto; padding: 20px 24px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+
+    .msg {
+      max-width: 75%; padding: 12px 16px;
+      border-radius: 14px; font-size: 14px; line-height: 1.55;
+      position: relative; animation: fadeIn 0.25s ease;
+    }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+
+    .msg.user {
+      align-self: flex-end; background: var(--fs-primary); color: white;
+      border-bottom-right-radius: 4px;
+    }
+    .msg.assistant {
+      align-self: flex-start; background: var(--fs-surface-2);
+      border-bottom-left-radius: 4px;
+    }
+    .msg.system {
+      align-self: center; background: transparent;
+      color: var(--fs-text-muted); font-size: 12px;
+      border: 1px solid var(--fs-border); border-radius: 20px;
+      padding: 6px 14px;
+    }
+    .msg .meta {
+      font-size: 11px; margin-top: 6px; opacity: 0.6;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .msg audio {
+      width: 100%; margin-top: 8px; height: 32px; border-radius: 6px;
+    }
+    .msg .confidence-badge {
+      font-size: 10px; padding: 2px 6px; border-radius: 10px;
+      background: rgba(255,255,255,0.12);
+    }
+
+    .typing-indicator {
+      align-self: flex-start; padding: 14px 18px;
+      background: var(--fs-surface-2); border-radius: 14px;
+      border-bottom-left-radius: 4px; display: none;
+    }
+    .typing-indicator.visible { display: flex; gap: 5px; }
+    .typing-indicator span {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--fs-text-muted); animation: typing 1.4s infinite;
+    }
+    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typing { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+
+    /* ---- Bottom bar ---- */
+    .bottom-bar {
+      padding: 16px 24px; background: var(--fs-surface);
+      border-top: 1px solid var(--fs-border);
+      display: flex; align-items: center; gap: 12px;
+    }
+
+    .btn {
+      padding: 10px 20px; border: none; border-radius: 10px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: all 0.2s; display: flex; align-items: center; gap: 8px;
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: var(--fs-primary); color: white; }
+    .btn-primary:hover:not(:disabled) { background: var(--fs-primary-hover); }
+    .btn-danger { background: var(--fs-error); color: white; }
+    .btn-danger:hover:not(:disabled) { background: #dc2626; }
+    .btn-outline {
+      background: transparent; color: var(--fs-text-muted);
+      border: 1px solid var(--fs-border);
+    }
+    .btn-outline:hover:not(:disabled) { background: var(--fs-surface-2); color: var(--fs-text); }
+
+    .btn-record {
+      width: 52px; height: 52px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0; flex-shrink: 0;
+    }
+    .btn-record.recording {
+      background: var(--fs-error);
+      animation: pulse-record 1.5s infinite;
+    }
+    @keyframes pulse-record {
+      0%,100%{ box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+      50%{ box-shadow: 0 0 0 14px transparent; }
+    }
+
+    .text-input-wrap { flex: 1; position: relative; }
+    .text-input-wrap input {
+      width: 100%; padding: 12px 46px 12px 14px;
+      background: var(--fs-bg); border: 1px solid var(--fs-border);
+      border-radius: 10px; color: var(--fs-text); font-size: 14px;
+    }
+    .text-input-wrap input:focus { outline: none; border-color: var(--fs-primary); }
+    .text-input-wrap .send-btn {
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      width: 32px; height: 32px; border-radius: 8px;
+      background: var(--fs-primary); border: none; color: white;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .text-input-wrap .send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .latency { font-size: 11px; color: var(--fs-text-muted); white-space: nowrap; }
+
+    /* ---- Visualizer ---- */
+    .visualizer-wrap {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+    }
+    #visualizer { height: 40px; }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 768px) {
+      .main { flex-direction: column; }
+      .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--fs-border); }
+      .msg { max-width: 90%; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="topbar-logo">
+      <svg viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#4f46e5"/><path d="M8 10h12M8 14h8M8 18h10" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+      <span>Finspot</span>
+    </div>
+    <span class="topbar-badge">Voice Agent Integration</span>
+  </div>
+
+  <div class="main">
+    <!-- Sidebar config -->
+    <div class="sidebar">
+      <div class="section-title">Connection</div>
+      <div id="statusBar" class="status-bar disconnected">
+        <span class="status-dot"></span>
+        <span id="statusText">Disconnected</span>
+      </div>
+
+      <div class="section-title">Authentication</div>
+      <div class="radio-group">
+        <input type="radio" name="authMode" id="authJwt" value="jwt" checked>
+        <label for="authJwt">JWT Token</label>
+        <input type="radio" name="authMode" id="authApiKey" value="apikey">
+        <label for="authApiKey">API Key</label>
+      </div>
+
+      <div id="jwtFields">
+        <div class="field">
+          <label>JWT Token</label>
+          <input id="token" type="password" placeholder="Paste your JWT access token" />
+        </div>
+      </div>
+      <div id="apiKeyFields" style="display:none;">
+        <div class="field">
+          <label>API Key</label>
+          <input id="apiKey" type="password" placeholder="prefix_secretkey" />
+          <div class="hint">Format: prefix_secretkey</div>
+        </div>
+        <div class="field">
+          <label>Tenant ID</label>
+          <input id="tenantId" placeholder="Your tenant UUID" />
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="section-title">Voice Settings</div>
+      <div class="field">
+        <label>Server URL</label>
+        <input id="serverUrl" value="https://voice.santhira.com" />
+      </div>
+      <div class="field">
+        <label>Language</label>
+        <select id="language">
+          <option value="en">English</option>
+          <option value="ta">Tamil</option>
+          <option value="hi">Hindi</option>
+          <option value="te">Telugu</option>
+          <option value="kn">Kannada</option>
+          <option value="ml">Malayalam</option>
+          <option value="bn">Bengali</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Persona</label>
+        <select id="persona">
+          <option value="">Default</option>
+        </select>
+      </div>
+
+      <hr class="divider">
+
+      <button id="connectBtn" class="btn btn-primary" style="width:100%" onclick="toggleConnection()">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2.5 2a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5zm11 0a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5zM5 8a3 3 0 1 1 6 0 3 3 0 0 1-6 0z"/></svg>
+        Connect
+      </button>
+    </div>
+
+    <!-- Chat area -->
+    <div class="chat-area">
+      <div class="chat-header">
+        <h2>Voice Conversation</h2>
+        <span id="sessionInfo" class="session-id"></span>
+      </div>
+
+      <div id="messages" class="messages">
+        <div class="msg system">Configure credentials and connect to start</div>
+      </div>
+
+      <div class="typing-indicator" id="typingIndicator">
+        <span></span><span></span><span></span>
+      </div>
+
+      <!-- Bottom controls -->
+      <div class="bottom-bar">
+        <button id="recordBtn" class="btn btn-primary btn-record" onclick="toggleRecording()" disabled title="Hold to talk">
+          <svg id="micIcon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+          <svg id="stopIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+            <rect x="4" y="4" width="16" height="16" rx="2"/>
+          </svg>
+        </button>
+
+        <div class="visualizer-wrap">
+          <canvas id="visualizer" width="400" height="40"></canvas>
+        </div>
+
+        <div class="text-input-wrap">
+          <input id="textInput" placeholder="Or type a message..." disabled onkeydown="if(event.key==='Enter')sendText()" />
+          <button class="send-btn" onclick="sendText()" id="sendBtn" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+
+        <span id="latencyDisplay" class="latency"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+<script>
+  // ---- State ----
+  let socket = null;
+  let mediaRecorder = null;
+  let audioStream = null;
+  let isRecording = false;
+  let sessionId = null;
+  let audioContext = null;
+  let analyser = null;
+  let animFrameId = null;
+  let conversationId = null;
+  let lastSendTime = 0;
+
+  // ---- Auth mode toggle ----
+  document.querySelectorAll('input[name="authMode"]').forEach(r => {
+    r.addEventListener('change', () => {
+      const jwt = r.value === 'jwt';
+      document.getElementById('jwtFields').style.display = jwt ? '' : 'none';
+      document.getElementById('apiKeyFields').style.display = jwt ? 'none' : '';
+    });
+  });
+
+  // ---- Status ----
+  function setStatus(text, state) {
+    const bar = document.getElementById('statusBar');
+    bar.className = 'status-bar ' + state;
+    document.getElementById('statusText').textContent = text;
+  }
+
+  // ---- Messages ----
+  function addMsg(text, type, extra) {
+    const el = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'msg ' + type;
+
+    let html = text;
+    if (extra) {
+      let meta = '';
+      if (extra.confidence != null)
+        meta += `<span class="confidence-badge">${(extra.confidence * 100).toFixed(0)}% conf</span>`;
+      if (extra.latency_ms)
+        meta += `${extra.latency_ms}ms`;
+      if (extra.language)
+        meta += extra.language;
+      if (meta) html += `<div class="meta">${meta}</div>`;
+    }
+    if (extra && extra.audio) {
+      html += `<audio controls src="data:audio/wav;base64,${extra.audio}"></audio>`;
+    }
+
+    div.innerHTML = html;
+    el.appendChild(div);
+    el.scrollTop = el.scrollHeight;
+
+    // Auto-play audio
+    const audioEl = div.querySelector('audio');
+    if (audioEl) audioEl.play().catch(() => {});
+
+    return div;
+  }
+
+  function showTyping(visible) {
+    const el = document.getElementById('typingIndicator');
+    el.classList.toggle('visible', visible);
+    if (visible) {
+      const msgs = document.getElementById('messages');
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+  }
+
+  // ---- Connection ----
+  function toggleConnection() {
+    if (socket && socket.connected) {
+      cleanup();
+      return;
+    }
+    connect();
+  }
+
+  function connect() {
+    const url = document.getElementById('serverUrl').value.trim();
+    if (!url) return;
+
+    const authData = {};
+    const mode = document.querySelector('input[name="authMode"]:checked').value;
+    if (mode === 'jwt') {
+      const token = document.getElementById('token').value.trim();
+      if (!token) { addMsg('Please enter a JWT token', 'system'); return; }
+      authData.token = token.startsWith('Bearer ') ? token.slice(7) : token;
+    } else {
+      const apiKey = document.getElementById('apiKey').value.trim();
+      const tenantId = document.getElementById('tenantId').value.trim();
+      if (!apiKey || !tenantId) { addMsg('Please enter API key and Tenant ID', 'system'); return; }
+      authData.apiKey = apiKey;
+      authData.tenantId = tenantId;
+    }
+
+    setStatus('Connecting...', 'connecting');
+    document.getElementById('connectBtn').disabled = true;
+
+    socket = io(url, {
+      auth: authData,
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 3,
+    });
+
+    socket.on('connect', () => {
+      setStatus('Connected', 'connected');
+      document.getElementById('connectBtn').innerHTML = svgDisconnect + ' Disconnect';
+      document.getElementById('connectBtn').disabled = false;
+      document.getElementById('connectBtn').className = 'btn btn-danger';
+
+      // Auto-start session
+      const lang = document.getElementById('language').value;
+      const persona = document.getElementById('persona').value;
+      socket.emit('start-session', { language: lang, persona_id: persona || undefined });
+      addMsg('Connecting to voice agent...', 'system');
+    });
+
+    socket.on('session-ready', (data) => {
+      sessionId = data.session_id;
+      setStatus('Ready - speak or type', 'connected');
+      document.getElementById('sessionInfo').textContent = 'Session: ' + data.session_id.slice(0, 8) + '...';
+      document.getElementById('recordBtn').disabled = false;
+      document.getElementById('textInput').disabled = false;
+      document.getElementById('sendBtn').disabled = false;
+      addMsg('Session started (' + data.language.toUpperCase() + ', ' + data.sample_rate + ' Hz)', 'system');
+    });
+
+    socket.on('transcript', (data) => {
+      showTyping(false);
+      addMsg(data.text, 'user', { confidence: data.confidence, language: data.language });
+      showTyping(true);
+    });
+
+    socket.on('response-text', (data) => {
+      showTyping(false);
+      conversationId = data.conversation_id || conversationId;
+      const latency = lastSendTime ? Date.now() - lastSendTime : null;
+      if (latency) document.getElementById('latencyDisplay').textContent = latency + 'ms';
+      addMsg(data.text, 'assistant');
+    });
+
+    socket.on('audio-response', (data) => {
+      showTyping(false);
+      if (data.audio) {
+        addMsg('', 'assistant', { audio: data.audio, latency_ms: data.duration_ms });
+      }
+    });
+
+    socket.on('error', (data) => {
+      showTyping(false);
+      addMsg('Error: ' + (data.message || JSON.stringify(data)), 'system');
+    });
+
+    socket.on('session-timeout', (data) => {
+      showTyping(false);
+      addMsg('Session ended: ' + data.reason, 'system');
+      setStatus('Session timed out', 'disconnected');
+      disableControls();
+    });
+
+    socket.on('disconnect', (reason) => {
+      setStatus('Disconnected: ' + reason, 'disconnected');
+      resetUI();
+    });
+
+    socket.on('connect_error', (err) => {
+      setStatus('Connection failed', 'disconnected');
+      addMsg('Connection error: ' + err.message, 'system');
+      resetUI();
+    });
+  }
+
+  function cleanup() {
+    stopRecording();
+    if (socket) {
+      socket.emit('end-session');
+      socket.disconnect();
+      socket = null;
+    }
+    sessionId = null;
+    conversationId = null;
+    resetUI();
+    setStatus('Disconnected', 'disconnected');
+    addMsg('Disconnected', 'system');
+  }
+
+  function resetUI() {
+    document.getElementById('connectBtn').innerHTML = svgConnect + ' Connect';
+    document.getElementById('connectBtn').className = 'btn btn-primary';
+    document.getElementById('connectBtn').disabled = false;
+    document.getElementById('connectBtn').style.width = '100%';
+    document.getElementById('sessionInfo').textContent = '';
+    disableControls();
+  }
+
+  function disableControls() {
+    document.getElementById('recordBtn').disabled = true;
+    document.getElementById('textInput').disabled = true;
+    document.getElementById('sendBtn').disabled = true;
+  }
+
+  // ---- Recording ----
+  async function toggleRecording() {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      await startRecording();
+    }
+  }
+
+  async function startRecording() {
+    if (!socket || !sessionId) return;
+
+    try {
+      audioStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+
+      // Visualizer setup
+      audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      const source = audioContext.createMediaStreamSource(audioStream);
+      source.connect(analyser);
+      drawVisualizer();
+
+      mediaRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm;codecs=opus' });
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0 && socket && socket.connected) {
+          lastSendTime = Date.now();
+          e.data.arrayBuffer().then(buf => socket.emit('audio-chunk', buf));
+        }
+      };
+
+      mediaRecorder.start(250);
+      isRecording = true;
+
+      setStatus('Recording...', 'recording');
+      document.getElementById('micIcon').style.display = 'none';
+      document.getElementById('stopIcon').style.display = '';
+      document.getElementById('recordBtn').classList.add('recording');
+      document.getElementById('recordBtn').title = 'Stop recording';
+    } catch (err) {
+      addMsg('Microphone error: ' + err.message, 'system');
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+    if (audioStream) {
+      audioStream.getTracks().forEach(t => t.stop());
+      audioStream = null;
+    }
+    if (animFrameId) {
+      cancelAnimationFrame(animFrameId);
+      animFrameId = null;
+      clearCanvas();
+    }
+    if (audioContext) {
+      audioContext.close().catch(() => {});
+      audioContext = null;
+      analyser = null;
+    }
+
+    isRecording = false;
+    document.getElementById('micIcon').style.display = '';
+    document.getElementById('stopIcon').style.display = 'none';
+    document.getElementById('recordBtn').classList.remove('recording');
+    document.getElementById('recordBtn').title = 'Hold to talk';
+
+    if (sessionId) setStatus('Ready - speak or type', 'connected');
+  }
+
+  // ---- Text input fallback (sends to orchestrator via REST) ----
+  function sendText() {
+    const input = document.getElementById('textInput');
+    const text = input.value.trim();
+    if (!text || !socket || !sessionId) return;
+
+    addMsg(text, 'user');
+    input.value = '';
+    showTyping(true);
+    lastSendTime = Date.now();
+
+    // Send as text event for orchestrator processing
+    socket.emit('text-message', { text, conversation_id: conversationId });
+  }
+
+  // ---- Audio visualizer ----
+  function drawVisualizer() {
+    if (!analyser) return;
+
+    const canvas = document.getElementById('visualizer');
+    const ctx = canvas.getContext('2d');
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    function draw() {
+      animFrameId = requestAnimationFrame(draw);
+      analyser.getByteFrequencyData(dataArray);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const barWidth = (canvas.width / bufferLength) * 2.5;
+      let x = 0;
+
+      for (let i = 0; i < bufferLength; i++) {
+        const barHeight = (dataArray[i] / 255) * canvas.height;
+        const hue = 240 + (dataArray[i] / 255) * 30; // Indigo range
+        ctx.fillStyle = `hsla(${hue}, 80%, 65%, ${0.3 + (dataArray[i] / 255) * 0.7})`;
+        ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
+        x += barWidth;
+      }
+    }
+    draw();
+  }
+
+  function clearCanvas() {
+    const canvas = document.getElementById('visualizer');
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // ---- SVG icons ----
+  const svgConnect = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2.5 2a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5zm11 0a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5zM5 8a3 3 0 1 1 6 0 3 3 0 0 1-6 0z"/></svg>';
+  const svgDisconnect = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286zm1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94z"/></svg>';
+</script>
+</body>
+</html>

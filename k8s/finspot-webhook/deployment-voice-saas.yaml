@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: finspot-webhook-receiver
+  namespace: voice-saas
+  labels:
+    app: finspot-webhook-receiver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: finspot-webhook-receiver
+  template:
+    metadata:
+      labels:
+        app: finspot-webhook-receiver
+    spec:
+      containers:
+        - name: webhook-receiver
+          image: node:20-alpine
+          command: ['node', '/app/bundle.cjs']
+          ports:
+            - containerPort: 3100
+              name: http
+          env:
+            - name: PORT
+              value: "3100"
+            - name: WEBHOOK_SECRET
+              value: "fswh_e98fbad6600b524b9ebe4ed6a341a908"
+            - name: NODE_ENV
+              value: "production"
+          volumeMounts:
+            - name: app-code
+              mountPath: /app/bundle.cjs
+              subPath: bundle.cjs
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /api/voice/health
+              port: 3100
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/voice/health
+              port: 3100
+            initialDelaySeconds: 3
+            periodSeconds: 10
+      volumes:
+        - name: app-code
+          configMap:
+            name: finspot-webhook-code
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: finspot-webhook
+  namespace: voice-saas
+  labels:
+    app: finspot-webhook-receiver
+spec:
+  selector:
+    app: finspot-webhook-receiver
+  ports:
+    - port: 3100
+      targetPort: 3100
+      name: http
+  type: ClusterIP

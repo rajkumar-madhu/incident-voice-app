@@ -19,7 +19,7 @@ logger = structlog.get_logger()
 _SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
 
 
-async def transcribe(client: AsyncOpenAI, audio_bytes: bytes) -> str:
+async def transcribe(client: AsyncOpenAI, audio_bytes: bytes, language: str = "en") -> str:
     """Send audio to OpenAI Whisper and return the transcript text."""
     start = time.monotonic()
 
@@ -29,11 +29,11 @@ async def transcribe(client: AsyncOpenAI, audio_bytes: bytes) -> str:
     response = await client.audio.transcriptions.create(
         model=settings.openai_stt_model,
         file=audio_file,
-        language="en",
+        language=language,
     )
 
     latency_ms = int((time.monotonic() - start) * 1000)
-    logger.info("stt_complete", latency_ms=latency_ms, chars=len(response.text))
+    logger.info("stt_complete", latency_ms=latency_ms, chars=len(response.text), language=language)
     return response.text
 
 

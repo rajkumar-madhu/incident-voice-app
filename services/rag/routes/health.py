@@ -32,8 +32,9 @@ async def readiness():
     db_ok = await check_connection()
     model_ok = embedding_model.is_loaded
 
-    if redis_ok and db_ok and model_ok:
-        return {"status": "ready"}
+    # Core readiness: DB + model must be up. Redis is optional (cache-only).
+    if db_ok and model_ok:
+        return {"status": "ready", "database": db_ok, "redis": redis_ok, "model": model_ok}
     return JSONResponse(
         content={"status": "not ready", "database": db_ok, "redis": redis_ok, "model": model_ok},
         status_code=503,

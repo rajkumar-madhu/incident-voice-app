@@ -1,7 +1,7 @@
 """Santhira Voice Agent - Incident management customer support agent.
 
 OpenAI-powered voice agent using GPT with function calling for
-incident management, runbook search, and general conversation.
+Argus ITSM incident management and IT operations support.
 """
 
 import asyncio
@@ -9,46 +9,66 @@ import json
 import sys
 import time
 
+import httpx
 import structlog
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
 from config import settings
-from tools import TOOL_DEFINITIONS, TOOL_HANDLERS
+from tools import TOOL_DEFINITIONS, TOOL_HANDLERS, set_auth_token
 
 load_dotenv(override=True)
 
 logger = structlog.get_logger()
 
 SYSTEM_PROMPT = """\
-You are Santhira, an AI voice agent for LinkedEye's incident management platform.
-You help IT support teams manage incidents through voice interactions.
+You are Santhira, an AI voice agent for the Argus ITSM platform by Santhira (Terv Pro Technology).
+You help IT support teams manage incidents, alerts, and infrastructure through voice interactions.
 
 Your capabilities:
-- Look up existing incidents by ID or keyword search
+- Look up existing incidents by number (INC0004521) or keyword search
 - Create new incident tickets with proper categorization and priority
 - Escalate incidents to higher priority levels
-- Search runbooks and SOPs for troubleshooting steps
-- Retrieve incident history and activity timelines
+- List recent incidents filtered by state or priority
+- Get dashboard statistics (open incidents, MTTR, SLA compliance)
+- Search active alerts from Prometheus/Grafana monitoring
 - Handle general conversation and IT support questions
 
 Conversation guidelines:
 - Be concise and clear — responses will be converted to speech via TTS.
 - Keep responses under 3 sentences when possible.
 - Always confirm critical actions (creating/escalating incidents) before executing.
-- When searching runbooks, summarize the key steps rather than reading verbatim.
-- Use incident IDs (e.g., INC-1234) when referencing specific incidents.
+- Use incident numbers (e.g., INC0004521) when referencing specific incidents.
 - If the caller describes a new issue, gather: affected service, impact, and urgency
   before creating a ticket.
 - For P1/P2 incidents, proactively suggest escalation if not already escalated.
-- For general questions, respond conversationally and helpfully.
+- Argus manages 13+ financial institution clients across India.
 
 Priority definitions:
-- P1: Critical — service down, widespread impact
-- P2: High — major feature impaired, workaround difficult
-- P3: Medium — feature impaired, workaround available
-- P4: Low — minor issue, no impact on service
+- P1: Critical — service down, widespread impact (SLA: 5min response, 1hr resolve)
+- P2: High — major feature impaired (SLA: 15min response, 4hr resolve)
+- P3: Medium — feature impaired, workaround available (SLA: 1hr response, 24hr resolve)
+- P4: Low — minor issue, no impact (SLA: 4hr response, 72hr resolve)
 """
+
+
+async def _generate_itsm_token() -> str:
+    """Generate a JWT token from the Argus backend for API access."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{settings.itsm_api_url}/api/v1/auth/login",
+                json={"email": "superadmin@linkedeye.local", "password": "LinkedEye@2026"},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            token = data.get("data", {}).get("accessToken", "")
+            if token:
+                logger.info("itsm_auth_success")
+                return token
+    except Exception as e:
+        logger.warning("itsm_auth_failed", error=str(e))
+    return ""
 
 MAX_TOOL_ROUNDS = 5
 
@@ -150,6 +170,14 @@ async def run_interactive(client: AsyncOpenAI) -> None:
 
 async def main() -> None:
     """Entry point."""
+    # Authenticate with Argus ITSM backend
+    token = await _generate_itsm_token()
+    if token:
+        set_auth_token(token)
+        logger.info("itsm_connected", url=settings.itsm_api_url)
+    else:
+        logger.warning("itsm_no_auth", msg="Running without ITSM authentication — tool calls may fail")
+
     client = AsyncOpenAI(api_key=settings.openai_api_key)
 
     if len(sys.argv) > 1:

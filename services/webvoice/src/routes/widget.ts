@@ -13,6 +13,17 @@ router.get('/widget.js', (_req: Request, res: Response) => {
   res.sendFile(widgetPath);
 });
 
+// Integration pages
+router.get('/integrations/finspot', (_req: Request, res: Response) => {
+  const pagePath = path.join(__dirname, '..', '..', 'public', 'integrations', 'finspot.html');
+  res.sendFile(pagePath);
+});
+
+router.get('/integrations/finspot-embed.js', (_req: Request, res: Response) => {
+  const scriptPath = path.join(__dirname, '..', '..', 'public', 'integrations', 'finspot-embed.js');
+  res.type('application/javascript').sendFile(scriptPath);
+});
+
 router.get('/widget/config', (req: Request, res: Response) => {
   res.json({
     success: true,

@@ -17,17 +17,31 @@ logger = structlog.get_logger(service="rag")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import asyncio, os
     logger.info("Starting RAG service", port=settings.port)
 
-    # Initialize database pool and run migrations
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        import os
-        migration_path = os.path.join(os.path.dirname(__file__), "db", "migrations", "001_rag_schema.sql")
-        if os.path.exists(migration_path):
-            with open(migration_path) as f:
-                await conn.execute(f.read())
-            logger.info("Database migration applied")
+    # Initialize database pool with retry (sidecar may still be starting)
+    pool = None
+    for attempt in range(30):
+        try:
+            pool = await get_pool()
+            async with pool.acquire() as conn:
+                migration_path = os.path.join(os.path.dirname(__file__), "db", "migrations", "001_rag_schema.sql")
+                if os.path.exists(migration_path):
+                    with open(migration_path) as f:
+                        await conn.execute(f.read())
+                logger.info("Database migration applied")
+            break
+        except Exception as e:
+            logger.warning("DB connection attempt %d/30 failed: %s", attempt + 1, str(e))
+            # Reset pool so get_pool() retries
+            from db.postgres import close_pool
+            await close_pool()
+            pool = None
+            await asyncio.sleep(2)
+
+    if pool is None:
+        logger.error("Failed to connect to database after 30 attempts")
 
     # Load embedding model
     loaded = await embedding_model.load()

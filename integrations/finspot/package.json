@@ -1,0 +1,23 @@
+{
+  "name": "finspot-voice-webhook-receiver",
+  "version": "1.0.0",
+  "description": "Webhook receiver for LinkedEye Voice Agent integration with Finspot ITSM",
+  "type": "module",
+  "scripts": {
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "setup": "tsx src/setup.ts"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "pino": "^8.18.0",
+    "pino-pretty": "^10.3.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

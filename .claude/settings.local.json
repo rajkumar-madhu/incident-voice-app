@@ -110,7 +110,20 @@
       "Bash(head:*)",
       "WebFetch(domain:webhook.site)",
       "Bash(MSYS_NO_PATHCONV=1 kubectl cp:*)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(MSYS_NO_PATHCONV=1 kubectl apply:*)",
+      "Bash(set +H:*)",
+      "Bash(echo === Create fresh API key ===:*)",
+      "Bash(echo === TEST 1: List API Keys via Gateway ===:*)",
+      "Bash(echo WEBHOOK_SECRET=$WEBHOOK_SECRET:*)",
+      "Bash(cd \"C:/Users/RajkumarMadhuFinspot/Desktop/finspot-voiceagent-saas-notebook/integrations/finspot\" && npx esbuild src/server.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/bundle.mjs --external:pino-pretty 2>&1)",
+      "Bash(MSYS_NO_PATHCONV=1 kubectl delete configmap finspot-webhook-code -n linkedeye-itsm 2>&1 && \\\\\nMSYS_NO_PATHCONV=1 kubectl create configmap finspot-webhook-code -n linkedeye-itsm \\\\\n  --from-file=bundle.mjs=\"C:/Users/RajkumarMadhuFinspot/Desktop/finspot-voiceagent-saas-notebook/integrations/finspot/dist/bundle.mjs\" \\\\\n  2>&1)",
+      "Bash(cd \"C:/Users/RajkumarMadhuFinspot/Desktop/finspot-voiceagent-saas-notebook/integrations/finspot\" && npx esbuild src/server.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/bundle.cjs --minify 2>&1)",
+      "Bash(MSYS_NO_PATHCONV=1 kubectl delete configmap finspot-webhook-code -n linkedeye-itsm 2>&1 && \\\\\nMSYS_NO_PATHCONV=1 kubectl create configmap finspot-webhook-code -n linkedeye-itsm \\\\\n  --from-file=bundle.cjs=\"C:/Users/RajkumarMadhuFinspot/Desktop/finspot-voiceagent-saas-notebook/integrations/finspot/dist/bundle.cjs\" \\\\\n  2>&1)",
+      "Bash(cd /c/Users/RajkumarMadhuFinspot/Desktop/finspot-voiceagent-saas-notebook/integrations/finspot && npm run build 2>&1)",
+      "Bash(which esbuild 2>/dev/null || npx --yes esbuild --version 2>&1)",
+      "Bash(cd /c/Users/RajkumarMadhuFinspot/Desktop/finspot-voiceagent-saas-notebook/integrations/finspot && npx --yes esbuild src/server.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/bundle.cjs 2>&1)",
+      "Bash(cd /c/Users/RajkumarMadhuFinspot/Desktop/finspot-voiceagent-saas-notebook/integrations/finspot && npx esbuild src/server.ts --bundle --platform=node --target=node20 --format=cjs --minify --outfile=dist/bundle.cjs 2>&1)"
     ]
   }
 }

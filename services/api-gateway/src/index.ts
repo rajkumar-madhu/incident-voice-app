@@ -155,13 +155,48 @@ for (const basePath of dashboardPaths) {
   });
 }
 
+// Proxy Finspot webhook receiver routes
+const FINSPOT_WEBHOOK_URL = process.env.FINSPOT_WEBHOOK_URL || 'http://finspot-webhook:3100';
+app.use('/api/webhooks/voice', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const upstream = await fetch(`${FINSPOT_WEBHOOK_URL}/api/webhooks/voice`, {
+      method: req.method,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': req.headers['x-api-key'] as string || '',
+        'X-Webhook-Event': req.headers['x-webhook-event'] as string || '',
+        'X-Request-ID': req.headers['x-request-id'] as string || '',
+      },
+      body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+    });
+    const data = await upstream.json();
+    res.status(upstream.status).json(data);
+  } catch (err) {
+    next(err);
+  }
+});
+app.use('/api/voice', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const upstream = await fetch(`${FINSPOT_WEBHOOK_URL}/api/voice${req.path}${req.url.includes('?') ? '?' + req.url.split('?')[1] : ''}`, {
+      method: req.method,
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await upstream.json();
+    res.status(upstream.status).json(data);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Error handling
 app.use(notFoundHandler);
 app.use(errorHandler);
 
 // Graceful shutdown
-const shutdown = (signal: string) => {
+const shutdown = async (signal: string) => {
   logger.info({ signal }, 'Shutdown signal received');
+  const { closeCallEventPublisher } = await import('./services/callEventPublisher.js');
+  await closeCallEventPublisher();
   process.exit(0);
 };
 

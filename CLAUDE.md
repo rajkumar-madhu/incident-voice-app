@@ -20,6 +20,7 @@ LinkedEye Voice Agent SaaS - a multi-tenant AI Voice Agent platform with 8 micro
 | STT (Faster Whisper) | Python/FastAPI | 8001 | `services/stt/` |
 | TTS (IndicF5 + Piper fallback) | Python/FastAPI | 8002 | `services/tts/` |
 | RAG (pgvector, nomic-embed-text) | Python/FastAPI | 8003 | `services/rag/` |
+| Dashboard (Admin SPA) | React/Vite | 5173 | `services/dashboard/src/` |
 
 Additional ports: Flowise 3000, Grafana 3001, PostgreSQL 5432, Redis 6379, Prometheus 9090, Ollama 11434.
 
@@ -58,8 +59,11 @@ services/<name>/
 └── Dockerfile            # Python 3.10-slim multi-stage
 ```
 
+**Dashboard frontend** (`services/dashboard/`): React 19 + Vite 6 + Tailwind + shadcn/ui + Recharts + TanStack Query. Pages: Dashboard, Call Logs, Analytics, Agents, API Keys, Billing, Settings. Backend API lives in the Auth service (`services/auth/src/routes/dashboard.ts`). Call log persistence uses Redis pub/sub (webvoice publishes, auth subscribes).
+
 **Database migrations** are split per service:
 - `services/auth/src/db/migrations/001_init_schema.sql` — tenants, users, api_keys, usage_events, audit_logs (RLS via `current_setting('app.current_tenant_id')`)
+- `services/auth/src/db/migrations/002_dashboard_schema.sql` — agents, call_logs, phone_numbers, billing_plans, billing_usage_summaries, materialized views
 - `services/orchestrator/src/db/migrations/001_orchestrator_schema.sql` — conversations, conversation_messages
 - `services/email/src/db/migrations/001_email_schema.sql` — email_accounts, emails, attachments
 - `services/rag/db/migrations/001_rag_schema.sql` — documents, document_chunks (pgvector)
@@ -73,6 +77,7 @@ API Gateway → Auth, STT, TTS, RAG, Flowise, Orchestrator, Email
 Orchestrator → Auth, STT, TTS, RAG, Flowise (via Postgres + Redis)
 Email → Orchestrator (AI responses), Auth (via Postgres + Redis)
 Webvoice → STT, TTS, Orchestrator (via Redis, no Postgres)
+Dashboard → Auth (API), API Gateway (proxy)
 STT, TTS, RAG → Redis (caching); RAG → Postgres (pgvector)
 ```
 
@@ -184,6 +189,11 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8003   # RAG
 pytest tests/                                            # Run tests
 ruff check .                                             # Lint (used in CI)
 mypy . --ignore-missing-imports                          # Type check (used in CI)
+
+# Dashboard (from services/dashboard/)
+npm run dev           # Vite dev server on port 5173
+npm run build         # Production build
+npm run preview       # Preview production build
 
 # Kubernetes
 kubectl apply -k k8s/base
