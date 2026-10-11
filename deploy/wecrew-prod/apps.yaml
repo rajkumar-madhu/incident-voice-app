@@ -25,6 +25,9 @@ spec:
       labels:
         app: auth
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
       containers:
         - name: auth
           image: harbor.wecrew.in/library/voice-auth:${IMAGE_TAG}
@@ -57,6 +60,7 @@ spec:
               memory: 512Mi
           securityContext:
             runAsNonRoot: true
+            runAsUser: 1000
             allowPrivilegeEscalation: false
 ---
 apiVersion: v1
@@ -86,6 +90,9 @@ spec:
       labels:
         app: api-gateway
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
       containers:
         - name: api-gateway
           image: harbor.wecrew.in/library/voice-api-gateway:${IMAGE_TAG}
@@ -131,6 +138,7 @@ spec:
               memory: 512Mi
           securityContext:
             runAsNonRoot: true
+            runAsUser: 1000
             allowPrivilegeEscalation: false
 ---
 apiVersion: v1
