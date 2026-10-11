@@ -30,7 +30,7 @@ spec:
         runAsUser: 1000
       containers:
         - name: auth
-          image: harbor.wecrew.in/library/voice-auth:${IMAGE_TAG}
+          image: harbor.wecrew.in/library/voice-auth:${AUTH_IMAGE_TAG}
           ports:
             - containerPort: 4001
           env:
@@ -95,7 +95,7 @@ spec:
         runAsUser: 1000
       containers:
         - name: api-gateway
-          image: harbor.wecrew.in/library/voice-api-gateway:${IMAGE_TAG}
+          image: harbor.wecrew.in/library/voice-api-gateway:${GATEWAY_IMAGE_TAG}
           ports:
             - containerPort: 4000
           env:
@@ -170,7 +170,7 @@ spec:
     spec:
       containers:
         - name: dashboard
-          image: harbor.wecrew.in/library/voice-dashboard:${IMAGE_TAG}
+          image: harbor.wecrew.in/library/voice-dashboard:${DASHBOARD_IMAGE_TAG}
           ports:
             - containerPort: 5173
           readinessProbe:
