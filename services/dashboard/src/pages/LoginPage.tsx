@@ -31,19 +31,22 @@ export default function LoginPage() {
   return (
     <AuthShell
       title="Welcome back"
-      description="Sign in to your dashboard"
+      description="Sign in to manage agents, call logs, and API keys."
+      panelTagline="Pick up where you left off — every conversation is already in your workspace."
       footer={
         <>
-          New to LinkedEye?{' '}
+          New to WeCrew Voice?{' '}
           <Link to="/signup" className="font-medium text-primary hover:underline">
-            Create an account
+            Create a free workspace
           </Link>
         </>
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <label htmlFor="email" className="text-sm font-medium">Email</label>
+          <label htmlFor="email" className="text-sm font-medium">
+            Email
+          </label>
           <Input
             id="email"
             type="email"
@@ -52,22 +55,25 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            autoFocus
           />
         </div>
         <div className="space-y-2">
-          <label htmlFor="password" className="text-sm font-medium">Password</label>
+          <label htmlFor="password" className="text-sm font-medium">
+            Password
+          </label>
           <Input
             id="password"
             type="password"
             autoComplete="current-password"
-            placeholder="Enter your password"
+            placeholder="Your password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
         </div>
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? 'Signing in...' : 'Sign in'}
+          {loading ? 'Signing in…' : 'Sign in to dashboard'}
         </Button>
       </form>
     </AuthShell>

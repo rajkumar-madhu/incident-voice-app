@@ -4,24 +4,27 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --primary: 239 84% 67%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
+    /* WeCrew: paper #f4f1ea, ink #0e1116, blue #2b4cff, coral #ff5b2e, green #0f7a55 */
+    --background: 40 33% 94%;
+    --foreground: 220 25% 7%;
+    --card: 40 40% 98%;
+    --card-foreground: 220 25% 7%;
+    --primary: 231 100% 58%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 40 20% 90%;
+    --secondary-foreground: 220 25% 7%;
+    --muted: 40 18% 88%;
+    --muted-foreground: 220 12% 40%;
+    --accent: 14 100% 59%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 239 84% 67%;
-    --radius: 0.5rem;
+    --border: 40 14% 82%;
+    --input: 40 14% 82%;
+    --ring: 231 100% 58%;
+    --radius: 0.625rem;
+    --wecrew-coral: 14 100% 59%;
+    --wecrew-green: 158 79% 27%;
   }
 
   * {
@@ -50,4 +53,27 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
+}
+
+@keyframes wave-bar {
+  0%,
+  100% {
+    transform: scaleY(0.45);
+    opacity: 0.65;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.animate-wave-bar {
+  transform-origin: bottom;
+  animation: wave-bar 1.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-wave-bar {
+    animation: none;
+  }
 }

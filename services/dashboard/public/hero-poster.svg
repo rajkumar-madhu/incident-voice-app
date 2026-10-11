@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
+  <title id="title">WeCrew Voice  abstract voice waveform</title>
+  <desc id="desc">Decorative poster with voice waveforms in WeCrew blue and coral on ink background</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0e1116"/>
+      <stop offset="100%" stop-color="#1a2030"/>
+    </linearGradient>
+    <linearGradient id="wave" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2b4cff" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#ff5b2e" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#0f7a55" stop-opacity="0.8"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="960" height="540" fill="url(#bg)"/>
+  <ellipse cx="720" cy="120" rx="180" ry="120" fill="#2b4cff" opacity="0.12"/>
+  <ellipse cx="200" cy="420" rx="160" ry="100" fill="#ff5b2e" opacity="0.1"/>
+  <g fill="none" stroke="url(#wave)" stroke-width="2.5" stroke-linecap="round" filter="url(#glow)">
+    <path d="M40 270 Q120 180 200 270 T360 270 T520 270 T680 270 T840 270 T920 270"/>
+    <path d="M40 300 Q100 220 180 300 T340 300 T500 300 T660 300 T820 300 T920 300" opacity="0.7"/>
+    <path d="M40 240 Q140 320 240 240 T440 240 T640 240 T840 240 T920 240" opacity="0.5"/>
+  </g>
+  <g fill="#f4f1ea" opacity="0.95" font-family="system-ui,sans-serif" font-size="14">
+    <text x="48" y="52" font-weight="600">WeCrew Voice</text>
+    <text x="48" y="74" fill="#a8b0c0" font-size="12">Powered by LinkedEye</text>
+  </g>
+</svg>
