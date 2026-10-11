@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ─── LinkedEye Voice Agent SaaS — Database Migrations ───
+# ─── WeCrew Voice SaaS — Database Migrations ───
 # Runs all SQL migration files against the PostgreSQL instance.
 # Idempotent: safe to run multiple times (IF NOT EXISTS patterns).
 
@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 echo "══════════════════════════════════════════════════"
-echo "  LinkedEye Voice Agent — Database Migrations"
+echo "  WeCrew Voice — Database Migrations"
 echo "══════════════════════════════════════════════════"
 echo ""
 

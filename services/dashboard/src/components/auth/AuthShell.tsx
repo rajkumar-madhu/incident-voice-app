@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import BrandMark from '@/components/marketing/BrandMark';
-import LinkedEyeBadge from '@/components/marketing/LinkedEyeBadge';
 import VoicePreview from '@/components/marketing/VoicePreview';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -28,7 +27,6 @@ export default function AuthShell({
           <div className="space-y-8 py-8">
             <div>
               <p className="text-sm font-medium uppercase tracking-widest text-primary">WeCrew Voice</p>
-              <LinkedEyeBadge className="mt-1 block" />
               <h2 className="mt-3 font-serif text-3xl leading-snug tracking-tight">{panelTagline}</h2>
               <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
                 Sign up in under a minute. Free tier includes voice minutes, web sessions, and a full dashboard — no card required.

@@ -15,7 +15,6 @@ import {
 import { Button } from '@/components/ui/button';
 import BrandMark from '@/components/marketing/BrandMark';
 import HeroMedia from '@/components/marketing/HeroMedia';
-import LinkedEyeBadge from '@/components/marketing/LinkedEyeBadge';
 import { useAuth } from '@/hooks/useAuth';
 
 const FEATURES = [
@@ -136,7 +135,6 @@ export default function LandingPage() {
                 <span className="text-[hsl(var(--wecrew-coral))]">web</span>, and{' '}
                 <span className="text-[hsl(var(--wecrew-green))]">email</span>
               </h1>
-              <LinkedEyeBadge className="mt-2 inline-block lg:mx-0 mx-auto" />
               <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
                 WeCrew Voice handles customer conversations on every channel, then shows transcripts, actions, and analytics in one dashboard.
               </p>
@@ -272,7 +270,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-8 text-sm text-muted-foreground sm:flex-row">
           <span>© {new Date().getFullYear()} WeCrew</span>
           <span className="font-medium text-foreground/80">
-            WeCrew Voice · Powered by LinkedEye · ai.voice.wecrew.in
+            WeCrew Voice · ai.voice.wecrew.in
           </span>
         </div>
       </footer>

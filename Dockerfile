@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for LinkedEye Voice Agent SaaS Platform
+# Multi-stage Dockerfile for WeCrew Voice SaaS Platform
 # Builds all services (Node.js + Python) into a single image
 
 # ==============================================================================

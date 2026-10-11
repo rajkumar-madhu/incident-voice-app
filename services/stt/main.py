@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
     logger.info("STT service shutdown complete")
 
 app = FastAPI(
-    title="LinkedEye STT Service",
+    title="WeCrew STT Service",
     version="1.0.0",
     lifespan=lifespan,
 )

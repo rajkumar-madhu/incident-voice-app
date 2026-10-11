@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ─── LinkedEye Voice Agent SaaS — Smoke Tests ───
+# ─── WeCrew Voice SaaS — Smoke Tests ───
 # Verifies all services are running and healthy after deployment.
 
 echo "══════════════════════════════════════════════════"
-echo "  LinkedEye Voice Agent — Smoke Tests"
+echo "  WeCrew Voice — Smoke Tests"
 echo "══════════════════════════════════════════════════"
 echo ""
 

@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
     await close_redis()
     logger.info("TTS service shutdown complete")
 
-app = FastAPI(title="LinkedEye TTS Service", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="WeCrew TTS Service", version="1.0.0", lifespan=lifespan)
 
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)

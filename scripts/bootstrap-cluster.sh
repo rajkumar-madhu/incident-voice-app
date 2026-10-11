@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ─── LinkedEye Voice Agent SaaS — Cluster Bootstrap ───
+# ─── WeCrew Voice SaaS — Cluster Bootstrap ───
 # Installs all cluster prerequisites for the voice-saas platform.
 # Run once on a fresh cluster before deploying workloads.
 
@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 echo "══════════════════════════════════════════════════"
-echo "  LinkedEye Voice Agent — Cluster Bootstrap"
+echo "  WeCrew Voice — Cluster Bootstrap"
 echo "══════════════════════════════════════════════════"
 
 # ─── 1. Create Namespaces ───

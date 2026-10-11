@@ -1,13 +1,10 @@
 import { Link } from 'react-router-dom';
 import { Mic } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import LinkedEyeBadge from '@/components/marketing/LinkedEyeBadge';
-
 type BrandMarkProps = {
   className?: string;
   size?: 'sm' | 'md' | 'lg';
   linkHome?: boolean;
-  showSubbrand?: boolean;
 };
 
 const sizes = {
@@ -20,7 +17,6 @@ export default function BrandMark({
   className,
   size = 'md',
   linkHome = true,
-  showSubbrand = true,
 }: BrandMarkProps) {
   const s = sizes[size];
   const inner = (
@@ -32,7 +28,6 @@ export default function BrandMark({
         <span className={cn('font-serif font-normal leading-tight tracking-tight', s.text)}>
           WeCrew <span className="text-primary font-sans font-semibold">Voice</span>
         </span>
-        {showSubbrand && <LinkedEyeBadge className="text-left" />}
       </span>
     </span>
   );

@@ -1,5 +1,5 @@
 /**
- * LinkedEye Voice Widget SDK
+ * WeCrew Voice Widget SDK
  * Embeddable client for web voice interactions
  */
 (function(window) {
@@ -10,7 +10,7 @@
     silenceThreshold: 1500,
   };
 
-  function LinkedEyeVoiceWidget(options) {
+  function WeCrewVoiceWidget(options) {
     this.serverUrl = options.serverUrl;
     this.token = options.token;
     this.apiKey = options.apiKey;
@@ -31,7 +31,7 @@
     this.sessionId = null;
   }
 
-  LinkedEyeVoiceWidget.prototype.connect = function() {
+  WeCrewVoiceWidget.prototype.connect = function() {
     var self = this;
     return new Promise(function(resolve, reject) {
       // Dynamically load socket.io client
@@ -47,7 +47,7 @@
     });
   };
 
-  LinkedEyeVoiceWidget.prototype._initSocket = function(resolve, reject) {
+  WeCrewVoiceWidget.prototype._initSocket = function(resolve, reject) {
     var self = this;
     var authData = {};
     if (this.token) authData.token = this.token;
@@ -76,12 +76,12 @@
     });
   };
 
-  LinkedEyeVoiceWidget.prototype.startSession = function() {
+  WeCrewVoiceWidget.prototype.startSession = function() {
     if (!this.socket) throw new Error('Not connected');
     this.socket.emit('start-session', { language: this.language, persona_id: this.personaId });
   };
 
-  LinkedEyeVoiceWidget.prototype.startRecording = function() {
+  WeCrewVoiceWidget.prototype.startRecording = function() {
     var self = this;
     if (!this.socket || !this.sessionId) throw new Error('No active session');
 
@@ -104,7 +104,7 @@
     });
   };
 
-  LinkedEyeVoiceWidget.prototype.stopRecording = function() {
+  WeCrewVoiceWidget.prototype.stopRecording = function() {
     if (this.mediaRecorder && this.isRecording) {
       this.mediaRecorder.stop();
       this.isRecording = false;
@@ -115,18 +115,18 @@
     }
   };
 
-  LinkedEyeVoiceWidget.prototype.endSession = function() {
+  WeCrewVoiceWidget.prototype.endSession = function() {
     this.stopRecording();
     if (this.socket) this.socket.emit('end-session');
     this.sessionId = null;
   };
 
-  LinkedEyeVoiceWidget.prototype.disconnect = function() {
+  WeCrewVoiceWidget.prototype.disconnect = function() {
     this.endSession();
     if (this.socket) { this.socket.disconnect(); this.socket = null; }
   };
 
-  LinkedEyeVoiceWidget.prototype._playAudio = function(base64Audio) {
+  WeCrewVoiceWidget.prototype._playAudio = function(base64Audio) {
     try {
       var audioData = atob(base64Audio);
       var arrayBuffer = new ArrayBuffer(audioData.length);
@@ -145,5 +145,7 @@
     }
   };
 
-  window.LinkedEyeVoiceWidget = LinkedEyeVoiceWidget;
+  window.WeCrewVoiceWidget = WeCrewVoiceWidget;
+  /** @deprecated Use WeCrewVoiceWidget */
+  window.LinkedEyeVoiceWidget = WeCrewVoiceWidget;
 })(window);

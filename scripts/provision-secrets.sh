@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ─── LinkedEye Voice Agent SaaS — Secret Provisioning ───
+# ─── WeCrew Voice SaaS — Secret Provisioning ───
 # Interactive script to generate and apply K8s secrets.
 # Run after bootstrap-cluster.sh, before deploying workloads.
 
 echo "══════════════════════════════════════════════════"
-echo "  LinkedEye Voice Agent — Secret Provisioning"
+echo "  WeCrew Voice — Secret Provisioning"
 echo "══════════════════════════════════════════════════"
 echo ""
 

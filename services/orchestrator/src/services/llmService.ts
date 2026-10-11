@@ -18,7 +18,7 @@ export const callLLM = async (
   const start = Date.now();
 
   // Build the prompt with context
-  let systemPrompt = 'You are a helpful AI assistant for LinkedEye Voice Agent platform.';
+  let systemPrompt = 'You are a helpful AI assistant for the WeCrew Voice platform.';
   if (ragContext) {
     systemPrompt += `\n\nRelevant context from knowledge base:\n${ragContext}`;
   }

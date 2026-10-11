@@ -1,7 +1,7 @@
 {
   "name": "finspot-voice-webhook-receiver",
   "version": "1.0.0",
-  "description": "Webhook receiver for LinkedEye Voice Agent integration with Finspot ITSM",
+  "description": "Webhook receiver for WeCrew Voice integration with Finspot ITSM",
   "type": "module",
   "scripts": {
     "start": "node dist/server.js",

@@ -24,7 +24,9 @@ export default function Sidebar() {
     <aside className="fixed left-0 top-0 z-40 h-screen w-60 border-r bg-background">
       <div className="flex h-14 items-center gap-2 border-b px-4">
         <Headphones className="h-6 w-6 text-primary" />
-        <span className="font-semibold text-lg">LinkedEye</span>
+        <span className="font-semibold text-lg">
+          WeCrew <span className="text-primary">Voice</span>
+        </span>
       </div>
 
       <nav className="flex flex-col gap-1 p-3">

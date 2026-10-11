@@ -4,7 +4,7 @@ metadata:
   name: voice-saas
   namespace: argocd
 spec:
-  description: LinkedEye Voice Agent SaaS Platform
+  description: WeCrew Voice SaaS Platform
 
   # Source repositories
   sourceRepos:
